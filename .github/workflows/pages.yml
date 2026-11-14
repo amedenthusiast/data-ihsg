@@ -39,7 +39,7 @@ jobs:
       - name: Stage dashboard
         run: |
           mkdir site
-          cp index.html presets.json dashboard.json.gz site/
+          cp index.html presets.json dashboard.json.gz extra_metrics.json.gz site/
       - name: Update from OneDrive
         if: ${{ env.MS_CLIENT_SECRET != '' }}
         run: |

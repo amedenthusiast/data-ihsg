@@ -221,7 +221,7 @@ def refresh_screener(root,payload):
             for name,column,shape in fields:
                 raw = row[column]
                 value = number(raw)
-                if value is not None and raw.strip().endswith("%") and "%" in (shape or ""):
+                if value is not None and raw.strip().endswith("%") and "%" in str(shape or ""):
                     value /= 100
                 stock[name] = value
     previous["Stockbit"] = date

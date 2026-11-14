@@ -113,13 +113,6 @@ let screenPeriods = {};
 const actual = new Set();
 const screenMetrics = {};
 const aliases = new Map();
-const ftseCorrections = {
-  "FTSE - Price / FTSE Universe Exit Ratio":"FTSE - Price Needed to Enter FTSE Universe",
-  "Price Needed to Downgrade to FTSE Mid Cap":"FTSE - Progress to Enter FTSE Large Cap",
-  "Price / FTSE Mid Cap Downgrade Ratio":"FTSE - Price Needed to Enter FTSE Large cap",
-  "Price Needed to Downgrade to FTSE Small Cap":"FTSE - Price Needed to Downgrade to FTSE Small Cap",
-  "Price / FTSE Small Cap Downgrade Ratio":"FTSE - Price / FTSE Small Cap Downgrade Ratio"
-};
 const view = {page:"ihsg", screen:"single", detail:"summary", ticker:"BBRI", range:63, cum:false, metric:"Weight to IHSG", order:"desc", value:"", rules:[], preset:"", ownerSearch:"", origin:"", status:"", balanceUnit:"pct",offset:0};
 const screens = {single:"Single Criteria",custom:"Custom Screener",own5:"Kepemilikan 5%",own1:"Kepemilikan 1%"};
 const details = {summary:"Summary",balance:"Balance Position",investor:"Investor Type & 1M",own5:"Kepemilikan 5%",own1:"Kepemilikan 1%"};
@@ -435,19 +428,20 @@ async function loadDashboard() {
   market=[];
   presetRules={};
   try {
-    const documents=await Promise.all(["dashboard.json.gz","presets.json"].map(async url=>{
+    const documents=await Promise.all(["dashboard.json.gz","presets.json","extra_metrics.json.gz"].map(async url=>{
       const response=await fetch(url);
       if (!response.ok) throw Error(url);
       if (url.endsWith(".gz")) return new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).json();
       return response.json();
     }));
-    const [data,presets]=documents;
+    const [data,presets,extras]=documents;
     presetRules=presets;
     market=data.market || [];
     owners.own5=data.own5 || [];
     owners.own1=data.own1 || [];
     catalogue=data.catalogue || [];
-    screenRows=data.screen || [];
+    screenRows=(data.screen || []).map(row=>({...extras[row.code],...row,
+      ...Object.fromEntries(Object.entries(extras[row.code]||{}).filter(([key])=>key!=="1 Day Price Returns (%)" || row[key]==null))}));
     screenPeriods=data.screenerPeriods || {};
     balanceByTicker=data.balance || {};
     investorByTicker=data.investor || {};
@@ -457,12 +451,10 @@ async function loadDashboard() {
     }
     for (const [name,, , ,shape] of catalogue) {
       aliases.set(name.toLowerCase(),name);
-      screenMetrics[name]=[name,value=>value==null?"-":typeof value==="number"?(shape?.includes("%")?pct(value*100):format(value)):escape(value)];
+      screenMetrics[name]=[name,value=>value==null?"-":typeof value==="number"?(String(shape??"").includes("%")?pct(value*100):format(value)):escape(value)];
     }
-    for (const [criterion, original] of Object.entries(ftseCorrections)) {
-      if (!screenMetrics[original]) continue;
-      screenMetrics[criterion]=[criterion,screenMetrics[original][1]];
-      for (const row of screenRows) row[criterion]=row[original];
+    for (const criterion of new Set(Object.values(extras).flatMap(Object.keys))) {
+      screenMetrics[criterion]=[criterion,value=>value==null?"-":/%|Ratio|Progress/.test(criterion)?pct(value*100):format(value)];
       aliases.set(criterion.toLowerCase(),criterion);
     }
     for (const key of Object.values(presets).flat().map(rule=>rule[0])) {
