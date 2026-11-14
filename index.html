@@ -91,7 +91,7 @@ const nav = document.querySelector("#navigation");
 const assessment = document.querySelector("#assessment");
 const locale = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 });
 const palette = ["#52e0bd","#7ba8ff","#ae98f6","#ffd280","#ff8298","#71cadf"];
-const format = value => Number.isFinite(value) ? locale.format(value) : "-";
+const format = value => Number.isFinite(value) ? locale.format(value) : "—";
 const signed = value => (value > 0 ? "+" : "") + format(value);
 const pct = value => format(value) + "%";
 const moneyT = value => "Rp " + format(value) + " T";
@@ -101,7 +101,7 @@ const sources = {};
 const metrics = {
   cap: ["Market cap", moneyT], weight: ["Bobot IHSG", pct], price:["Harga", x => "Rp " + format(x)],
   free:["Free float", pct], foreign:["Perubahan asing 1M (pp)", signed],
-  pe:["P/E (x)", format], pbv:["P/BV (x)", format], yield:["Dividend yield", pct],
+  pe:["P/E (×)", format], pbv:["P/BV (×)", format], yield:["Dividend yield", pct],
   hsc:["HSC", x => x ? "Ya" : "Tidak"], sector:["Sektor", x => x]
 };
 let presetRules = {};
@@ -128,8 +128,8 @@ function tabs(options, key, active) {
 }
 function stamp(source) {
   const data = sources[source];
-  const update = actual.has(source) ? new Intl.DateTimeFormat("id-ID",{dateStyle:"medium",timeStyle:"short",timeZone:"Asia/Jakarta"}).format(new Date(data.update))+" WIB" : "-";
-  return `<div class="stamp">Periode ${escape(actual.has(source)?data.period:"-")} � Last update ${update}</div>`;
+  const update = actual.has(source) ? new Intl.DateTimeFormat("id-ID",{dateStyle:"medium",timeStyle:"short",timeZone:"Asia/Jakarta"}).format(new Date(data.update))+" WIB" : "—";
+  return `<div class="stamp">Periode ${escape(actual.has(source)?data.period:"—")} · Last update ${update}</div>`;
 }
 function panel(title, source, body) {
   return `<section class="panel"><div class="panelhead"><h2>${title}</h2>${stamp(source)}</div>${body}</section>`;
@@ -173,9 +173,9 @@ function chart(points, key, type) {
   const barWidth = Math.max(3,(right-left)/points.length*.68);
   const plot = type === "bars" ?
     `<line x1="${left}" x2="${right}" y1="${y(0)}" y2="${y(0)}" stroke="#8091a7"/>${values.map((v,i) =>
-      `<rect x="${x(i)-barWidth/2}" y="${Math.min(y(v),y(0))}" width="${barWidth}" height="${Math.abs(y(v)-y(0))}" rx="1.5" fill="${v<0?palette[4]:palette[0]}"><title>${points[i].date} � ${signed(v)} T</title></rect>`).join("")}` :
+      `<rect x="${x(i)-barWidth/2}" y="${Math.min(y(v),y(0))}" width="${barWidth}" height="${Math.abs(y(v)-y(0))}" rx="1.5" fill="${v<0?palette[4]:palette[0]}"><title>${points[i].date} · ${signed(v)} T</title></rect>`).join("")}` :
     `<polygon fill="${palette[0]}" opacity=".12" points="${x(0)},${bottom} ${coordinates.join(" ")} ${x(values.length-1)},${bottom}"/><polyline fill="none" stroke="${palette[0]}" stroke-width="2.7" points="${coordinates.join(" ")}"/>${values.map((v,i) =>
-      `<circle cx="${x(i)}" cy="${y(v)}" r="5" fill="transparent"><title>${points[i].date} � ${format(v)}</title></circle>`).join("")}`;
+      `<circle cx="${x(i)}" cy="${y(v)}" r="5" fill="transparent"><title>${points[i].date} · ${format(v)}</title></circle>`).join("")}`;
   return `<svg class="chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${key==="price"?"Harga penutupan IHSG":key==="flow"?"Net foreign buy sell harian dalam triliun rupiah":"Arus asing kumulatif dalam triliun rupiah"}">${ticks}${plot}${textDates}</svg>`;
 }
 function marketPage() {
@@ -190,9 +190,9 @@ function marketPage() {
   return heading("Harga IHSG & Foreign Flow","Harga penutupan dan arus asing bersih per hari perdagangan.",
     select("range", {21:"1 bulan",63:"3 bulan",999:"Semua"}, view.range, "Periode grafik")) +
     cards([["IHSG terakhir",format(last.price)+" poin","market"],["Perubahan harian",signed(chg)+"%","market",tone(chg)],
-      ["Net foreign flow � periode terpilih",moneyT(total),"market",tone(total)]]) +
-    panel("Harga penutupan � poin","market",chart(points,"price","line")) +
-    panel("Net foreign flow � Rp triliun","market",
+      ["Net foreign flow · periode terpilih",moneyT(total),"market",tone(total)]]) +
+    panel("Harga penutupan · poin","market",chart(points,"price","line")) +
+    panel("Net foreign flow · Rp triliun","market",
       `<div class="controls">${tabs({daily:"Harian",cum:"Kumulatif"},"flow",view.cum?"cum":"daily")}</div>` +
       chart(flowPoints,view.cum?"cumulative":"flow",view.cum?"line":"bars"));
 }
@@ -210,7 +210,7 @@ function rulesMatch(stock, rules) {
     const target = typeof value === "number" ? (/^(yes|no|true|false)$/i.test(raw) ? Number(/^(yes|true)$/i.test(raw)) : parsed) : raw.toLowerCase();
     if (typeof value === "number" && !Number.isFinite(target)) return false;
     if (typeof value === "string") value = value.toLowerCase();
-    return ({">":() => value>target,"�":() => value>=target,"<":() => value<target,"�":() => value<=target,"=":() => value===target,"?":() => value!==target})[op]();
+    return ({">":() => value>target,"≥":() => value>=target,"<":() => value<target,"≤":() => value<=target,"=":() => value===target,"≠":() => value!==target})[op]();
   });
 }
 function matchingStocks() {
@@ -225,7 +225,7 @@ function matchingStocks() {
 }
 function screenerControls() {
   const sort = select("metric",metricOptions(Object.entries(screenMetrics)),view.metric,"Metrik") +
-    select("order",{desc:"Terbesar / Z-A",asc:"Terkecil / A-Z"},view.order,"Urutan");
+    select("order",{desc:"Terbesar / Z–A",asc:"Terkecil / A–Z"},view.order,"Urutan");
   if (view.screen === "single") {
     const options = Object.fromEntries([...new Set(screenRows.map(row => row[view.metric]).filter(v=>v!=null))].map(s => [s,s]));
     const filter = catalogue.find(row=>row[0]===view.metric)?.[3]==="FILTER" ?
@@ -234,7 +234,7 @@ function screenerControls() {
   }
   const rules = view.rules.map(([key,op,input],i) => `<div class="rule">
     ${select("rule-key-"+i,metricOptions(Object.entries(screenMetrics)),key,"Kriteria "+(i+1))}
-    ${select("rule-op-"+i,{"":"Nonaktif",">":">","�":"�","<":"<","�":"�","=":"=","?":"?"},op,"Operator "+(i+1))}
+    ${select("rule-op-"+i,{"":"Nonaktif",">":">","≥":"≥","<":"<","≤":"≤","=":"=","≠":"≠"},op,"Operator "+(i+1))}
     <input data-field="rule-input-${i}" aria-label="Nilai kriteria ${i+1}" value="${escape(input)}" placeholder="${key==="hsc"?"Ya / Tidak":"Nilai"}">
     <button data-action="remove" data-value="${i}" aria-label="Hapus kriteria ${i+1}">Hapus</button></div>`).join("");
   return `<div class="controls">${select("preset",{"":"Kriteria sendiri",...Object.fromEntries(Object.keys(presetRules).map(k=>[k,k]))},view.preset,"Preset")}${sort}</div>${rules}
@@ -249,10 +249,10 @@ function screenPage() {
   const keys = view.screen === "custom" ? Object.keys(screenMetrics) : [view.metric].filter(key=>screenMetrics[key]);
   const rows = selected.slice(view.offset,view.offset+100);
   const paging = `<div class="controls"><button data-action="prev" ${view.offset===0?"disabled":""}>Sebelumnya</button>
-    <span>${selected.length?view.offset+1:0}-${view.offset+rows.length} dari ${selected.length} saham</span>
+    <span>${selected.length?view.offset+1:0}–${view.offset+rows.length} dari ${selected.length} saham</span>
     <button data-action="next" ${view.offset+rows.length>=selected.length?"disabled":""}>Berikutnya</button></div>`;
   return head + panel(view.screen==="single"?"Single Criteria":"Custom Screener","screen",screenerControls()+paging+
-    '<div class="stamp">'+Object.entries(screenPeriods).map(([key,value])=>escape(key+" "+value)).join(" � ")+'</div>'+
+    '<div class="stamp">'+Object.entries(screenPeriods).map(([key,value])=>escape(key+" "+value)).join(" · ")+'</div>'+
     table(["Ticker","Emiten",...keys.map(escape)],rows.map(row =>
       [ticker(row.code),escape(row.name),...keys.map(key=>screenMetrics[key][1](row[key]))])));
 }
@@ -272,9 +272,9 @@ function ownership(source, code = "") {
     ${select("origin",{"":"Semua asal",Lokal:"Lokal",Asing:"Asing"},view.origin,"Asal investor")}
     ${select("status",{"":"Semua status",New:"New",Existing:"Existing",Exited:"Exited"},view.status,"Status kepemilikan")}
     <button data-action="apply">Cari</button><span class="stamp">${rows.length} posisi</span></div>`;
-  const grid = table(["Ticker","Pemegang saham","Asal","Kategori","Saham sebelumnya","Saham terbaru","Porsi sebelumnya","Porsi terbaru","� (pp)","Status"],sorted.map(
-    row => [ticker(row[0]),escape(row[1]),escape(row[2]),escape(row[3]),format(row[8]),format(row[7]),row[5]==null?"-":pct(row[5]),row[4]==null?"-":pct(row[4]),change(row)==null?"-":signed(change(row)),escape(row[6])]));
-  return panel((code?"Porsi terbaru":"Perubahan kepemilikan � poin persentase")+" � "+(source==="own5"?"5%":"1%"),source,
+  const grid = table(["Ticker","Pemegang saham","Asal","Kategori","Saham sebelumnya","Saham terbaru","Porsi sebelumnya","Porsi terbaru","Δ (pp)","Status"],sorted.map(
+    row => [ticker(row[0]),escape(row[1]),escape(row[2]),escape(row[3]),format(row[8]),format(row[7]),row[5]==null?"—":pct(row[5]),row[4]==null?"—":pct(row[4]),change(row)==null?"—":signed(change(row)),escape(row[6])]));
+  return panel((code?"Porsi terbaru":"Perubahan kepemilikan · poin persentase")+" · "+(source==="own5"?"5%":"1%"),source,
     filters+(code ? hbars(top,pct)+(rows.length ? "<details><summary>Lihat detail kepemilikan</summary>"+grid+"</details>" : "") : grid));
 }
 const balanceLabels = ["Lokal individu","Lokal korporasi","Lokal lainnya","Asing nonindividu","Asing individu"];
@@ -291,7 +291,7 @@ function balances(stock) {
     const segments = split.map((portion,i) => {
       const value = inPercent ? (total?portion*100/total:0) : portion;
       const width = max?value*100/max:0;
-      const result = `<div class="fill" style="width:${width}%;left:${left}%;background:${palette[i]};border-radius:0" title="${balanceLabels[i]} � ${inPercent?pct(value):format(value)+" miliar saham"}"></div>`;
+      const result = `<div class="fill" style="width:${width}%;left:${left}%;background:${palette[i]};border-radius:0" title="${balanceLabels[i]} · ${inPercent?pct(value):format(value)+" miliar saham"}"></div>`;
       left+=width;
       return result;
     }).join("");
@@ -307,7 +307,7 @@ function balances(stock) {
 function stockPage() {
   const universe = screenRows;
   const stock = universe.find(row => row.code===view.ticker) || {code:view.ticker,name:view.ticker,sector:""};
-  const head = heading(escape(stock.code)+" � "+escape(stock.name),escape(stock.sector),
+  const head = heading(escape(stock.code)+" · "+escape(stock.name),escape(stock.sector),
     select("ticker",Object.fromEntries([...new Set([...universe.map(row=>row.code),view.ticker])].sort().map(code=>[code,code])),view.ticker,"Ticker")+
     '<button data-action="ai">AI Assessment</button>') +
     `<div class="tabs" aria-label="Detail saham">${tabs(details,"detail",view.detail)}</div>`;
@@ -315,14 +315,14 @@ function stockPage() {
   if (view.detail === "balance") return head + balances(stock);
   if (view.detail === "investor") {
     const changes = (investorByTicker[stock.code]||[]).slice().sort((a,b)=>Math.abs(b[2]-b[1])-Math.abs(a[2]-a[1]));
-    const data = table(["Kategori","Bulan sebelumnya","Bulan terbaru","� (pp)"],changes.map(([label,old,current])=>
+    const data = table(["Kategori","Bulan sebelumnya","Bulan terbaru","Δ (pp)"],changes.map(([label,old,current])=>
       [escape(label),pct(old),pct(current),signed(current-old)]));
-    return head + panel("Perubahan porsi kepemilikan 1M � poin persentase","investor",
+    return head + panel("Perubahan porsi kepemilikan 1M · poin persentase","investor",
       changes.length?hbars(changes.slice(0,12).map(([label,old,current])=>[label,current-old]),signed,true)+"<details><summary>Lihat porsi per kategori</summary>"+data+"</details>":data);
   }
-  const show = (key,fn) => Number.isFinite(stock[key]) ? fn(stock[key]) : "-";
+  const show = (key,fn) => Number.isFinite(stock[key]) ? fn(stock[key]) : "—";
   return head + cards([["Harga",show("price",metrics.price[1]),"screen"],["Kapitalisasi pasar",show("cap",moneyT),"screen"],["Bobot IHSG",show("weight",pct),"screen"],
-    ["Free float",show("free",pct),"screen"],["Dividend yield",show("yield",pct),"screen"],["HSC",escape(stock.hsc ?? "-"),"screen"]]);
+    ["Free float",show("free",pct),"screen"],["Dividend yield",show("yield",pct),"screen"],["HSC",escape(stock.hsc ?? "—"),"screen"]]);
 }
 function render(focusField) {
   nav.innerHTML = tabs(pages,"page",view.page);
@@ -360,7 +360,7 @@ function changeField(field,value) {
     view.preset = "";
   } else if (field === "preset") {
     view.preset = value;
-    view.rules = (presetRules[value] || []).map(([key,op,amount])=>[aliases.get(key.toLowerCase())||key,op===">="?"�":op==="<="?"�":op,amount]);
+    view.rules = (presetRules[value] || []).map(([key,op,amount])=>[aliases.get(key.toLowerCase())||key,op===">="?"≥":op==="<="?"≤":op,amount]);
   } else {
     view[field] = field==="range"?Number(value):value;
     if (field==="metric") view.value="";
@@ -451,16 +451,16 @@ async function loadDashboard() {
     }
     for (const [name,, , ,shape] of catalogue) {
       aliases.set(name.toLowerCase(),name);
-      screenMetrics[name]=[name,value=>value==null?"-":typeof value==="number"?(String(shape??"").includes("%")?pct(value*100):format(value)):escape(value)];
+      screenMetrics[name]=[name,value=>value==null?"—":typeof value==="number"?(String(shape??"").includes("%")?pct(value*100):format(value)):escape(value)];
     }
     for (const criterion of new Set(Object.values(extras).flatMap(Object.keys))) {
-      screenMetrics[criterion]=[criterion,value=>value==null?"-":/%|Ratio|Progress/.test(criterion)?pct(value*100):format(value)];
+      screenMetrics[criterion]=[criterion,value=>value==null?"—":/%|Ratio|Progress/.test(criterion)?pct(value*100):format(value)];
       aliases.set(criterion.toLowerCase(),criterion);
     }
     for (const key of Object.values(presets).flat().map(rule=>rule[0])) {
       const canonical=aliases.get(key.toLowerCase());
       if (!canonical) {
-        screenMetrics[key]=[key,value=>value==null?"-":escape(value)];
+        screenMetrics[key]=[key,value=>value==null?"—":escape(value)];
         aliases.set(key.toLowerCase(),key);
       }
     }
