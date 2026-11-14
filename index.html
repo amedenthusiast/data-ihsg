@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Draf dashboard harga IHSG, arus asing, screener, dan kepemilikan saham.">
+<title>Data IHSG</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1119;--panel:#121b27;--line:#253344;--ink:#eef3fa;--muted:#a0b0c3;--accent:#52e0bd;--blue:#7ba8ff;--negative:#ff8298;--radius:14px}
+:root[data-theme="light"]{color-scheme:light;--bg:#f4f8fb;--panel:#fff;--line:#d8e3ed;--ink:#172c41;--muted:#4e647a;--accent:#007661;--negative:#a91b3d}
+[data-theme="light"] header,[data-theme="light"] button,[data-theme="light"] input,[data-theme="light"] select{background:#fff}
+[data-theme="light"] button[aria-pressed="true"]{background:#e1f4ee;border-color:#8bbfaf}
+[data-theme="light"] .track{background:#dfe8f0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,sans-serif}
+.shell{max-width:1240px;margin:auto;padding:0 32px}
+header{border-bottom:1px solid var(--line);background:#101823}
+.top{min-height:72px;display:flex;align-items:center;gap:32px;flex-wrap:wrap}
+.brand{font-size:19px;font-weight:750;letter-spacing:-.045em;white-space:nowrap}
+.brand span{color:var(--accent)}
+nav,.tabs,.controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.badge,.stamp{color:var(--muted);font-size:12px}
+.badge{margin-left:auto;border:1px solid var(--line);border-radius:20px;padding:5px 10px}
+main{padding-top:30px!important;padding-bottom:56px!important}
+h1,h2,p{margin:0}
+h1{font-size:clamp(28px,4vw,41px);letter-spacing:-.055em;line-height:1.08}
+h2{font-size:17px;letter-spacing:-.025em}
+.intro{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:0 0 19px}
+.intro p{color:var(--muted);margin-top:8px}
+.tabs{margin:0 0 17px}
+button,input,select{font:inherit;color:var(--ink);background:#111b28;border:1px solid var(--line);padding:8px 12px;border-radius:8px;max-width:100%}
+button{cursor:pointer}
+button:hover{border-color:var(--accent)}
+button[aria-pressed="true"]{color:var(--accent);background:#17312f;border-color:#2d6259}
+button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.card,.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
+.card{padding:16px}
+.card small{color:var(--muted);display:block}
+.card strong{display:block;font-size:clamp(19px,3vw,28px);letter-spacing:-.045em;font-variant-numeric:tabular-nums}
+.panel{padding:17px 19px;margin-bottom:13px}
+.panelhead{display:flex;align-items:flex-start;justify-content:space-between;gap:9px;flex-wrap:wrap;margin-bottom:10px}
+.panelhead .stamp{margin-top:3px}
+.panel .controls{margin-bottom:14px}
+.positive{color:var(--accent)}.negative{color:var(--negative)}
+.chart{width:100%;height:auto;display:block;overflow:visible}
+.chart text{fill:var(--muted);font:14px "Segoe UI",sans-serif}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.legend{display:flex;flex-wrap:wrap;gap:7px 15px;color:var(--muted);font-size:12px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.rows{overflow:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;white-space:nowrap}
+th,td{text-align:left;border-bottom:1px solid var(--line);padding:8px 12px}
+th{color:var(--muted);font-size:12px;font-weight:600}
+td button{padding:2px 8px}
+summary{cursor:pointer;color:var(--muted)}
+details{margin-top:14px}
+.rule{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.rule input{width:130px}
+.bars{display:grid;gap:9px;margin:8px 0}
+.bar-row{display:grid;grid-template-columns:minmax(120px,1fr) minmax(110px,3fr) minmax(68px,auto);gap:9px;align-items:center}
+.track{height:13px;background:#1d2938;border-radius:4px;position:relative;overflow:hidden}
+.fill{height:100%;position:absolute;top:0;border-radius:3px}
+.zero{height:100%;width:1px;position:absolute;left:50%;background:#96a8ba;z-index:1}
+.bar-row span:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.empty{color:var(--muted);padding:12px 0}
+dialog{max-width:min(92vw,610px);padding:22px;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink)}
+dialog::backdrop{background:#050911b0}
+dialog textarea{width:100%;min-height:190px;margin:13px 0;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;font:inherit}
+@media(max-width:640px){.shell{padding-left:14px;padding-right:14px}.top{padding-top:11px;padding-bottom:11px;gap:9px 14px}.top nav{order:3;width:100%}.panel{padding:12px}.card{padding:9px}.cards{gap:6px}.bar-row{grid-template-columns:minmax(95px,1fr) minmax(65px,2fr) auto;font-size:12px}.chart text{font-size:21px}}
+</style>
+</head>
+<body>
+<header><div class="shell top">
+  <div class="brand">Data <span>IHSG</span></div>
+  <nav aria-label="Menu utama" id="navigation"></nav>
+  <span class="badge" id="dataset-badge">Memuat data</span>
+  <button id="theme" type="button">Light mode</button>
+</div></header>
+<main class="shell" id="app"></main>
+<dialog id="assessment" aria-labelledby="assessment-title">
+  <h2 id="assessment-title">AI Assessment</h2>
+  <p class="stamp">Draf ini menyiapkan konteks. Salin prompt ke ChatGPT untuk menjalankan penilaian.</p>
+  <textarea readonly aria-label="Prompt penilaian"></textarea>
+  <div class="controls"><button id="copy">Salin prompt</button><form method="dialog"><button>Tutup</button></form><span role="status" class="stamp" id="copied"></span></div>
+</dialog>
+<script>
+"use strict";
+const app = document.querySelector("#app");
+const nav = document.querySelector("#navigation");
+const assessment = document.querySelector("#assessment");
+const locale = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 });
+const palette = ["#52e0bd","#7ba8ff","#ae98f6","#ffd280","#ff8298","#71cadf"];
+const format = value => Number.isFinite(value) ? locale.format(value) : "-";
+const signed = value => (value > 0 ? "+" : "") + format(value);
+const pct = value => format(value) + "%";
+const moneyT = value => "Rp " + format(value) + " T";
+const tone = value => value < 0 ? "negative" : "positive";
+const escape = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+const sources = {
+  market: {period:"13 Nov 2026", update:"13 Nov 2026, 23.20 WIB"},
+  screen: {period:"31 Okt 2026", update:"03 Nov 2026, 20.15 WIB"},
+  balance: {period:"29 Mei-30 Okt 2026", update:"03 Nov 2026, 20.15 WIB"},
+  investor: {period:"30 Sep-30 Okt 2026", update:"03 Nov 2026, 20.15 WIB"},
+  own5: {period:"12-13 Nov 2026", update:"13 Nov 2026, 23.20 WIB"},
+  own1: {period:"30 Sep-30 Okt 2026", update:"03 Nov 2026, 20.15 WIB"}
+};
+const metrics = {
+  cap: ["Market cap", moneyT], weight: ["Bobot IHSG", pct], price:["Harga", x => "Rp " + format(x)],
+  free:["Free float", pct], foreign:["Perubahan asing 1M (pp)", signed],
+  pe:["P/E (x)", format], pbv:["P/BV (x)", format], yield:["Dividend yield", pct],
+  hsc:["HSC", x => x ? "Ya" : "Tidak"], sector:["Sektor", x => x]
+};
+const stocks = [
+  ["BBCA","Bank Central Asia","Keuangan",9450,1165,9,33.2,.42,22.1,4.4,3.1,false],
+  ["BBRI","Bank Rakyat Indonesia","Keuangan",4180,633,8.4,46.1,1.18,9.4,1.7,6.4,false],
+  ["BMRI","Bank Mandiri","Keuangan",5050,466,7.2,39.9,-.35,8.9,1.7,5.8,false],
+  ["TLKM","Telkom Indonesia","Infrastruktur",2910,288,4.9,47.9,.76,10.6,2.1,6.2,false],
+  ["ASII","Astra International","Perindustrian",5100,206,3.8,49.4,.23,6.8,1.0,7.1,false],
+  ["MDKA","Merdeka Copper Gold","Barang Baku",2400,58,1.2,39.1,1.52,24.1,2.6,0,false],
+  ["ANTM","Aneka Tambang","Barang Baku",1820,43,1.4,34.5,-.19,10.2,1.6,3.8,false],
+  ["UNTR","United Tractors","Perindustrian",23900,89,1.6,40.5,.65,6.9,1.2,8.0,false],
+  ["GEMS","Golden Energy Mines","Energi",6800,40,0,6.7,-.72,7.2,2.3,9.2,true]
+].map(([code,name,sector,price,cap,weight,free,foreign,pe,pbv,yieldValue,hsc]) =>
+  ({code,name,sector,price,cap,weight,free,foreign,pe,pbv,yield:yieldValue,hsc}));
+let presetRules = {
+  "Fair Price (PE/PBV)":[["pe","�","9"],["pbv","�","2"]],
+  "Foreign Accumulation":[["foreign",">","0"],["cap",">","40"]],
+  "Dividend Play":[["yield","�","5"],["hsc","=","Tidak"]]
+};
+let market = [];
+for (let day = new Date("2026-07-13T00:00:00Z"), i = 0; day.toISOString() < "2026-11-14"; day.setUTCDate(day.getUTCDate() + 1)) {
+  if ([0,6].includes(day.getUTCDay())) continue;
+  const flow = Math.round((Math.sin(i * 1.33) * .8 + Math.cos(i * .39) * .54 + .10) * 100) / 100;
+  market.push({date:day.toISOString().slice(0,10), price:Math.round((6880 + i*10 + 160*Math.sin(i/6) + 64*Math.cos(i*1.15))*100)/100, flow});
+  i++;
+}
+const owners = {own5:[],own1:[]};
+let catalogue = [];
+let screenRows = [];
+const actual = new Set();
+const screenMetrics = {};
+const aliases = new Map();
+const view = {page:"ihsg", screen:"single", detail:"summary", ticker:"BBRI", range:63, cum:false, metric:"Weight to IHSG", order:"desc", value:"", rules:[], preset:"", ownerSearch:"", origin:"", status:"", balanceUnit:"pct",offset:0};
+const screens = {single:"Single Criteria",custom:"Custom Screener",own5:"Kepemilikan 5%",own1:"Kepemilikan 1%"};
+const details = {summary:"Summary",balance:"Balance Position",investor:"Investor Type & 1M",own5:"Kepemilikan 5%",own1:"Kepemilikan 1%"};
+const pages = {ihsg:"IHSG",screen:"Screener",detail:"Stock Detail"};
+const metricOptions = entries => Object.fromEntries(entries.map(([key, info]) => [key, info[0]]));
+function select(field, options, value, label) {
+  return `<select data-field="${field}" aria-label="${label}">${Object.entries(options).map(([key,name]) =>
+    `<option value="${escape(key)}"${String(value) === key ? " selected" : ""}>${escape(name)}</option>`).join("")}</select>`;
+}
+function tabs(options, key, active) {
+  return Object.entries(options).map(([id,label]) =>
+    `<button type="button" data-action="${key}" data-value="${id}" aria-pressed="${active === id}">${label}</button>`).join("");
+}
+function stamp(source) {
+  const data = sources[source];
+  const update = actual.has(source) ? new Intl.DateTimeFormat("id-ID",{dateStyle:"medium",timeStyle:"short",timeZone:"Asia/Jakarta"}).format(new Date(data.update))+" WIB" : "-";
+  return `<div class="stamp">Periode ${escape(actual.has(source)?data.period:"-")} � Last update ${update}</div>`;
+}
+function panel(title, source, body) {
+  return `<section class="panel"><div class="panelhead"><h2>${title}</h2>${stamp(source)}</div>${body}</section>`;
+}
+function heading(title, subtitle, controls = "") {
+  return `<div class="intro"><div><h1 tabindex="-1">${title}</h1><p>${subtitle}</p></div><div class="controls">${controls}</div></div>`;
+}
+function cards(items) {
+  return `<div class="cards">${items.map(([label,value,source,style = ""]) =>
+    `<div class="card"><small>${label}</small><strong class="${style}">${value}</strong>${stamp(source)}</div>`).join("")}</div>`;
+}
+function table(head, body) {
+  return body.length ? `<div class="rows"><table><thead><tr>${head.map(col => `<th scope="col">${col}</th>`).join("")}</tr></thead><tbody>${body.map(row => `<tr>${row.map(value => `<td>${value}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` :
+    '<p class="empty">Tidak ada hasil untuk filter ini.</p>';
+}
+function ticker(code) {
+  return `<button data-action="ticker" data-value="${escape(code)}">${escape(code)}</button>`;
+}
+function hbars(values, formatter, diverging = false) {
+  if (!values.length) return '<p class="empty">Tidak ada hasil untuk filter ini.</p>';
+  const max = Math.max(...values.map(row => Math.abs(row[1]))) || 1;
+  return `<div class="bars">${values.map(([label, value, html]) => {
+    const width = Math.abs(value / max) * (diverging ? 50 : 100);
+    const left = diverging ? (value < 0 ? 50-width : 50) : 0;
+    return `<div class="bar-row"><span>${html || escape(label)}</span><div class="track" aria-hidden="true">${diverging ? '<div class="zero"></div>' : ''}<div class="fill" style="left:${left}%;width:${width}%;background:${value < 0 ? palette[4] : palette[0]}"></div></div><span>${formatter(value)}</span></div>`;
+  }).join("")}</div>`;
+}
+function chart(points, key, type) {
+  const width=1020, height=type==="bars" ? 185 : 275, left=72, right=1001, top=14, bottom=height-35;
+  const values = points.map(d => d[key]);
+  const high = type==="bars" ? Math.max(...values,0) : Math.max(...values);
+  const low = type==="bars" ? Math.min(...values,0) : Math.min(...values);
+  const span = (high-low) || 1;
+  const x = index => left + (index+.5)*(right-left)/points.length;
+  const y = value => bottom - (value-low+span*.08)*(bottom-top)/(span*1.16);
+  const ticks = Array.from({length:5}, (_, i) => low+span*i/4).map(value =>
+    `<line class="grid" x1="${left}" y1="${y(value)}" x2="${right}" y2="${y(value)}"/><text x="${left-9}" y="${y(value)+4}" text-anchor="end">${format(value)}</text>`).join("");
+  const textDates = [0,.25,.5,.75,1].map(step => Math.round(step*(points.length-1))).map(i =>
+    `<text x="${x(i)}" y="${height-10}" text-anchor="${i===0?'start':i===points.length-1?'end':'middle'}">${points[i].date.slice(5)}</text>`).join("");
+  const coordinates = values.map((v,i) => `${x(i)},${y(v)}`);
+  const barWidth = Math.max(3,(right-left)/points.length*.68);
+  const plot = type === "bars" ?
+    `<line x1="${left}" x2="${right}" y1="${y(0)}" y2="${y(0)}" stroke="#8091a7"/>${values.map((v,i) =>
+      `<rect x="${x(i)-barWidth/2}" y="${Math.min(y(v),y(0))}" width="${barWidth}" height="${Math.abs(y(v)-y(0))}" rx="1.5" fill="${v<0?palette[4]:palette[0]}"><title>${points[i].date} � ${signed(v)} T</title></rect>`).join("")}` :
+    `<polygon fill="${palette[0]}" opacity=".12" points="${x(0)},${bottom} ${coordinates.join(" ")} ${x(values.length-1)},${bottom}"/><polyline fill="none" stroke="${palette[0]}" stroke-width="2.7" points="${coordinates.join(" ")}"/>${values.map((v,i) =>
+      `<circle cx="${x(i)}" cy="${y(v)}" r="5" fill="transparent"><title>${points[i].date} � ${format(v)}</title></circle>`).join("")}`;
+  return `<svg class="chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${key==="price"?"Harga penutupan IHSG":key==="flow"?"Net foreign buy sell harian dalam triliun rupiah":"Arus asing kumulatif dalam triliun rupiah"}">${ticks}${plot}${textDates}</svg>`;
+}
+function marketPage() {
+  if (market.length < 2) return heading("Harga IHSG & Foreign Flow","Data sumber belum tersedia.");
+  const points = market.slice(-view.range);
+  const last = points.at(-1);
+  const previous = points.at(-2);
+  const chg = (last.price/previous.price-1)*100;
+  const total = points.reduce((sum,row) => sum+row.flow,0);
+  let running = 0;
+  const flowPoints = points.map(row => ({...row, cumulative:running += row.flow}));
+  return heading("Harga IHSG & Foreign Flow","Harga penutupan dan arus asing bersih per hari perdagangan.",
+    select("range", {21:"1 bulan",63:"3 bulan",999:"Semua"}, view.range, "Periode grafik")) +
+    cards([["IHSG terakhir",format(last.price)+" poin","market"],["Perubahan harian",signed(chg)+"%","market",tone(chg)],
+      ["Net foreign flow � periode terpilih",moneyT(total),"market",tone(total)]]) +
+    panel("Harga penutupan � poin","market",chart(points,"price","line")) +
+    panel("Net foreign flow � Rp triliun","market",
+      `<div class="controls">${tabs({daily:"Harian",cum:"Kumulatif"},"flow",view.cum?"cum":"daily")}</div>` +
+      chart(flowPoints,view.cum?"cumulative":"flow",view.cum?"line":"bars"));
+}
+function rulesMatch(stock, rules) {
+  return rules.every(([key,op,input]) => {
+    if (!op || input.trim() === "") return true;
+    let value = stock[key];
+    if (value === undefined || value === null) return false;
+    const raw = input.trim();
+    const parsed = Number(/^[+-]?\d{1,3}(,\d{3})+(\.\d+)?$/.test(raw) ? raw.replaceAll(",","") : raw.replace(",","."));
+    if (typeof value === "boolean") value = Number(value);
+    if (typeof value === "string" && /^(yes|no|true|false)$/i.test(value)) {
+      if (raw === "1" || raw === "0") value = Number(/^(yes|true)$/i.test(value));
+    }
+    const target = typeof value === "number" ? (/^(yes|no|true|false)$/i.test(raw) ? Number(/^(yes|true)$/i.test(raw)) : parsed) : raw.toLowerCase();
+    if (typeof value === "number" && !Number.isFinite(target)) return false;
+    if (typeof value === "string") value = value.toLowerCase();
+    return ({">":() => value>target,"�":() => value>=target,"<":() => value<target,"�":() => value<=target,"=":() => value===target,"?":() => value!==target})[op]();
+  });
+}
+function matchingStocks() {
+  const key = view.metric;
+  const selected = view.screen === "custom" ? screenRows.filter(stock => rulesMatch(stock,view.rules)) :
+    screenRows.filter(stock => view.value === "" || String(stock[key]) === view.value);
+  return selected.slice().sort((a,b) => {
+    if (a[key] == null || b[key] == null) return Number(a[key] == null)-Number(b[key] == null) || a.code.localeCompare(b.code);
+    const delta = typeof a[key] === "number" && typeof b[key] === "number" ? a[key]-b[key] : String(a[key]).localeCompare(String(b[key]));
+    return (view.order==="asc"?delta:-delta) || a.code.localeCompare(b.code);
+  });
+}
+function screenerControls() {
+  const sort = select("metric",metricOptions(Object.entries(screenMetrics)),view.metric,"Metrik") +
+    select("order",{desc:"Terbesar / Z-A",asc:"Terkecil / A-Z"},view.order,"Urutan");
+  if (view.screen === "single") {
+    const options = Object.fromEntries([...new Set(screenRows.map(row => row[view.metric]).filter(v=>v!=null))].map(s => [s,s]));
+    const filter = catalogue.find(row=>row[0]===view.metric)?.[3]==="FILTER" ?
+      select("value", {"":"Semua",...options}, view.value, "Nilai filter") : "";
+    return `<div class="controls">${sort}${filter}</div>`;
+  }
+  const rules = view.rules.map(([key,op,input],i) => `<div class="rule">
+    ${select("rule-key-"+i,metricOptions(Object.entries(screenMetrics)),key,"Kriteria "+(i+1))}
+    ${select("rule-op-"+i,{"":"Nonaktif",">":">","�":"�","<":"<","�":"�","=":"=","?":"?"},op,"Operator "+(i+1))}
+    <input data-field="rule-input-${i}" aria-label="Nilai kriteria ${i+1}" value="${escape(input)}" placeholder="${key==="hsc"?"Ya / Tidak":"Nilai"}">
+    <button data-action="remove" data-value="${i}" aria-label="Hapus kriteria ${i+1}">Hapus</button></div>`).join("");
+  return `<div class="controls">${select("preset",{"":"Kriteria sendiri",...Object.fromEntries(Object.keys(presetRules).map(k=>[k,k]))},view.preset,"Preset")}${sort}</div>${rules}
+    <div class="controls"><button data-action="add">Tambah kriteria</button><button data-action="apply">Terapkan</button></div>`;
+}
+function screenPage() {
+  const head = heading("Screener","Peringkat dan filter berdasarkan snapshot bulanan.",
+    '<button data-action="ai">AI Assessment</button>') +
+    `<div class="tabs" aria-label="Jenis screener">${tabs(screens,"screen",view.screen)}</div>`;
+  if (view.screen.startsWith("own")) return head + ownership(view.screen);
+  const selected = matchingStocks();
+  const keys = view.screen === "custom" ? Object.keys(screenMetrics) : [view.metric].filter(key=>screenMetrics[key]);
+  const rows = selected.slice(view.offset,view.offset+100);
+  const paging = `<div class="controls"><button data-action="prev" ${view.offset===0?"disabled":""}>Sebelumnya</button>
+    <span>${selected.length?view.offset+1:0}-${view.offset+rows.length} dari ${selected.length} saham</span>
+    <button data-action="next" ${view.offset+rows.length>=selected.length?"disabled":""}>Berikutnya</button></div>`;
+  return head + panel(view.screen==="single"?"Single Criteria":"Custom Screener","screen",screenerControls()+paging+
+    table(["Ticker","Emiten",...keys.map(escape)],rows.map(row =>
+      [ticker(row.code),escape(row.name),...keys.map(key=>screenMetrics[key][1](row[key]))])));
+}
+function filteredOwners(source, code = "") {
+  const search = view.ownerSearch.trim().toLowerCase();
+  return owners[source].filter(row =>
+    (!code || row[0] === code) &&
+    (!search || (row[0]+" "+row[1]).toLowerCase().includes(search)) &&
+    (!view.origin || row[2] === view.origin) && (!view.status || row[6] === view.status));
+}
+function ownership(source, code = "") {
+  const rows = filteredOwners(source,code);
+  const change = row => row[4]!=null && row[5]!=null ? row[4]-row[5] : null;
+  const sorted = rows.slice().sort((a,b) => code ? (b[4]??-1)-(a[4]??-1) : Math.abs(change(b)??0)-Math.abs(change(a)??0));
+  const top = sorted.filter(row=>row[4]!=null).slice(0,8).map(row => [row[1],row[4]]);
+  const filters = `<div class="controls"><input data-field="ownerSearch" value="${escape(view.ownerSearch)}" aria-label="Cari pemegang saham atau ticker" placeholder="Cari pemegang saham atau ticker">
+    ${select("origin",{"":"Semua asal",Lokal:"Lokal",Asing:"Asing"},view.origin,"Asal investor")}
+    ${select("status",{"":"Semua status",New:"New",Existing:"Existing",Exited:"Exited"},view.status,"Status kepemilikan")}
+    <button data-action="apply">Cari</button><span class="stamp">${rows.length} posisi</span></div>`;
+  const grid = table(["Ticker","Pemegang saham","Asal","Kategori","Saham sebelumnya","Saham terbaru","Porsi sebelumnya","Porsi terbaru","� (pp)","Status"],sorted.map(
+    row => [ticker(row[0]),escape(row[1]),escape(row[2]),escape(row[3]),format(row[8]),format(row[7]),row[5]==null?"-":pct(row[5]),row[4]==null?"-":pct(row[4]),change(row)==null?"-":signed(change(row)),escape(row[6])]));
+  return panel((code?"Porsi terbaru":"Perubahan kepemilikan � poin persentase")+" � "+(source==="own5"?"5%":"1%"),source,
+    filters+(code ? hbars(top,pct)+(rows.length ? "<details><summary>Lihat detail kepemilikan</summary>"+grid+"</details>" : "") : grid));
+}
+const balanceLabels = ["Lokal individu","Lokal korporasi","Lokal lainnya","Asing nonindividu","Asing individu"];
+let balanceByTicker={}, investorByTicker={};
+function balances(stock) {
+  const series = balanceByTicker[stock.code] || [];
+  if (!series.length) return panel("Komposisi Balance Position","balance",'<p class="empty">Data ticker ini belum tersedia.</p>');
+  const rows = series.map(([label,split])=>[label,split.slice(0,5).map(value=>value/1e9)]);
+  const inPercent = view.balanceUnit === "pct";
+  const max = inPercent ? 100 : Math.max(...rows.map(([,split])=>split.reduce((a,b)=>a+b,0)));
+  const chart = rows.map(([label,split]) => {
+    let left = 0;
+    const total = split.reduce((a,b)=>a+b,0);
+    const segments = split.map((portion,i) => {
+      const value = inPercent ? (total?portion*100/total:0) : portion;
+      const width = max?value*100/max:0;
+      const result = `<div class="fill" style="width:${width}%;left:${left}%;background:${palette[i]};border-radius:0" title="${balanceLabels[i]} � ${inPercent?pct(value):format(value)+" miliar saham"}"></div>`;
+      left+=width;
+      return result;
+    }).join("");
+    return `<div class="bar-row"><span>${label}</span><div class="track" style="height:20px" aria-hidden="true">${segments}</div><span>${inPercent?"100%":format(total)+" miliar"}</span></div>`;
+  }).join("");
+  const legend = balanceLabels.map((label,i)=>`<span><i class="dot" style="background:${palette[i]}"></i>${label}</span>`).join("");
+  const data = table(["Periode",...balanceLabels],rows.map(([label,split])=>
+    [label,...split.map(value=>inPercent?pct(split.some(Boolean)?100*value/split.reduce((a,b)=>a+b,0):0):format(value))]));
+  return panel("Komposisi Balance Position","balance",
+    `<div class="controls">${select("balanceUnit",{pct:"Persentase",volume:"Miliar saham"},view.balanceUnit,"Satuan Balance Position")}</div>
+    <div class="bars">${chart}</div><div class="legend">${legend}</div><details><summary>Lihat angka per kategori</summary>${data}</details>`);
+}
+function stockPage() {
+  const universe = screenRows.length ? screenRows : stocks;
+  const stock = universe.find(row => row.code===view.ticker) || {code:view.ticker,name:view.ticker,sector:""};
+  const head = heading(escape(stock.code)+" � "+escape(stock.name),escape(stock.sector),
+    select("ticker",Object.fromEntries([...new Set([...universe.map(row=>row.code),view.ticker])].sort().map(code=>[code,code])),view.ticker,"Ticker")+
+    '<button data-action="ai">AI Assessment</button>') +
+    `<div class="tabs" aria-label="Detail saham">${tabs(details,"detail",view.detail)}</div>`;
+  if (view.detail.startsWith("own")) return head + ownership(view.detail,stock.code);
+  if (view.detail === "balance") return head + balances(stock);
+  if (view.detail === "investor") {
+    const changes = (investorByTicker[stock.code]||[]).slice().sort((a,b)=>Math.abs(b[2]-b[1])-Math.abs(a[2]-a[1]));
+    const data = table(["Kategori","Bulan sebelumnya","Bulan terbaru","� (pp)"],changes.map(([label,old,current])=>
+      [escape(label),pct(old),pct(current),signed(current-old)]));
+    return head + panel("Perubahan porsi kepemilikan 1M � poin persentase","investor",
+      changes.length?hbars(changes.slice(0,12).map(([label,old,current])=>[label,current-old]),signed,true)+"<details><summary>Lihat porsi per kategori</summary>"+data+"</details>":data);
+  }
+  const show = (key,fn) => Number.isFinite(stock[key]) ? fn(stock[key]) : "-";
+  return head + cards([["Harga",show("price",metrics.price[1]),"screen"],["Kapitalisasi pasar",show("cap",moneyT),"screen"],["Bobot IHSG",show("weight",pct),"screen"],
+    ["Free float",show("free",pct),"screen"],["Dividend yield",show("yield",pct),"screen"],["HSC",escape(stock.hsc ?? "-"),"screen"]]);
+}
+function render(focusField) {
+  nav.innerHTML = tabs(pages,"page",view.page);
+  app.innerHTML = ({ihsg:marketPage,screen:screenPage,detail:stockPage})[view.page]();
+  if (focusField) app.querySelector(`[data-field="${focusField}"]`)?.focus();
+}
+function showAssessment() {
+  const sub = view.page === "detail" ? view.detail : view.screen;
+  let source = sub.startsWith("own") ? sub : "screen";
+  let context;
+  if (sub.startsWith("own")) {
+    const rows = filteredOwners(source,view.page === "detail" ? view.ticker : "");
+    context = {jumlahPosisi:rows.length, hasil:rows.slice().sort((a,b)=>Math.abs(b[4]-b[5])-Math.abs(a[4]-a[5])).slice(0,12).map(
+      ([ticker,pemegang,asal,jenis,sekarang,sebelumnya,status])=>({ticker,pemegang,asal,jenis,sekarang,sebelumnya,status}))};
+  } else if (view.page === "detail") {
+    const stock = screenRows.find(row=>row.code===view.ticker) || {code:view.ticker};
+    source = {investor:"investor",balance:"balance"}[sub] || "screen";
+    context = sub==="investor" ? {kode:stock.code,porsi:[...(investorByTicker[stock.code]||[])]} :
+      sub==="balance" ? {kode:stock.code,kategori:balanceLabels,jumlahSaham:balanceByTicker[stock.code]||[]} : stock;
+  } else {
+    const rows = matchingStocks();
+    context = {kriteria:sub==="custom"?view.rules.filter(rule=>rule[2].trim()):null,metric:view.metric,jumlahHasil:rows.length,
+      hasil:rows.slice(0,12).map(stock=>({kode:stock.code,nilai:stock[view.metric]}))};
+  }
+  assessment.querySelector("textarea").value = "Tulis ringkasan berdasarkan angka dan periode yang diberikan. Jelaskan temuan, risiko interpretasi, dan data tambahan yang diperlukan.\n\n"+
+    JSON.stringify({periode:actual.has(source)?sources[source].period:null,pembaruan:actual.has(source)?sources[source].update:null,konteks:context},null,2);
+  document.querySelector("#copied").textContent = "";
+  assessment.showModal();
+}
+function changeField(field,value) {
+  view.offset = 0;
+  const [,rulePart,ruleIndex] = field.split("-");
+  if (field.startsWith("rule-")) {
+    view.rules[Number(ruleIndex)][{key:0,op:1,input:2}[rulePart]] = value;
+    view.preset = "";
+  } else if (field === "preset") {
+    view.preset = value;
+    view.rules = (presetRules[value] || []).map(([key,op,amount])=>[aliases.get(key.toLowerCase())||key,op===">="?"�":op==="<="?"�":op,amount]);
+  } else {
+    view[field] = field==="range"?Number(value):value;
+    if (field==="metric") view.value="";
+  }
+}
+app.addEventListener("input", event => {
+  const {field} = event.target.dataset;
+  if (event.target.matches("input") && field) changeField(field,event.target.value);
+});
+app.addEventListener("change", event => {
+  if (!event.target.matches("select")) return;
+  const {field} = event.target.dataset;
+  changeField(field,event.target.value);
+  render(field);
+});
+app.addEventListener("keydown", event => {
+  if (event.key==="Enter" && event.target.matches("input")) render(event.target.dataset.field);
+});
+document.addEventListener("click", async event => {
+  const button = event.target.closest("button");
+  if (!button) return;
+  if (button.id === "copy") {
+    const prompt = assessment.querySelector("textarea");
+    try {
+      await navigator.clipboard.writeText(prompt.value);
+      document.querySelector("#copied").textContent = "Prompt disalin.";
+    } catch {
+      prompt.focus();
+      prompt.select();
+      document.querySelector("#copied").textContent = "Tekan Ctrl+C untuk menyalin.";
+    }
+    return;
+  }
+  const {action,value} = button.dataset;
+  if (!action) return;
+  if (action === "ai") { showAssessment(); return; }
+  if (action === "page") view.page=value;
+  if (["page","screen","apply","remove"].includes(action)) view.offset=0;
+  if (action === "next") view.offset+=100;
+  if (action === "prev") view.offset=Math.max(0,view.offset-100);
+  if (action === "screen") { view.screen=value; view.ownerSearch=""; view.origin=""; view.status=""; }
+  if (action === "detail") { view.detail=value; view.ownerSearch=""; view.origin=""; view.status=""; }
+  if (action === "ticker") { view.ticker=value; view.page="detail"; view.detail="summary"; }
+  if (action === "flow") view.cum = value==="cum";
+  if (action === "add") { view.rules.push(["Market Cap",">",""]); view.preset=""; }
+  if (action === "remove") { view.rules.splice(Number(value),1); view.preset=""; }
+  render();
+  if (action === "page" || action === "ticker") app.querySelector("h1").focus();
+  else if (action === "add") app.querySelector(`[data-field="rule-key-${view.rules.length-1}"]`).focus();
+  else app.querySelector(`[data-action="${action}"]${value ? `[data-value="${CSS.escape(value)}"]` : ""}`)?.focus();
+});
+const theme = document.querySelector("#theme");
+function applyTheme(value) {
+  document.documentElement.dataset.theme=value;
+  theme.textContent=value==="light"?"Dark mode":"Light mode";
+}
+try { applyTheme(localStorage.getItem("ihsg-theme") || "dark"); } catch { applyTheme("dark"); }
+theme.addEventListener("click",()=>{
+  const next=document.documentElement.dataset.theme==="light"?"dark":"light";
+  applyTheme(next);
+  try { localStorage.setItem("ihsg-theme",next); } catch {}
+});
+async function loadDashboard() {
+  const badge=document.querySelector("#dataset-badge");
+  market=[];
+  presetRules={};
+  try {
+    const documents=await Promise.all(["dashboard.json","presets.json"].map(async url=>{
+      const response=await fetch(url);
+      if (!response.ok) throw Error(url);
+      return response.json();
+    }));
+    const [data,presets]=documents;
+    presetRules=presets;
+    market=data.market || [];
+    owners.own5=data.own5 || [];
+    owners.own1=data.own1 || [];
+    catalogue=data.catalogue || [];
+    screenRows=data.screen || [];
+    balanceByTicker=data.balance || {};
+    investorByTicker=data.investor || {};
+    for (const [key,source] of Object.entries(data.sources)) {
+      sources[key]=source;
+      actual.add(key);
+    }
+    for (const [name,, , ,shape] of catalogue) {
+      aliases.set(name.toLowerCase(),name);
+      screenMetrics[name]=[name,value=>value==null?"-":typeof value==="number"?(shape?.includes("%")?pct(value*100):format(value)):escape(value)];
+    }
+    for (const key of Object.values(presets).flat().map(rule=>rule[0])) {
+      const canonical=aliases.get(key.toLowerCase());
+      if (!canonical) {
+        screenMetrics[key]=[key,value=>value==null?"-":escape(value)];
+        aliases.set(key.toLowerCase(),key);
+      }
+    }
+    badge.textContent="Snapshot data";
+  } catch {
+    badge.textContent="Data belum tersedia";
+  }
+  render();
+}
+loadDashboard();
+</script>
+</body>
+</html>
