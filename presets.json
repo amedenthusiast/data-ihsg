@@ -1,0 +1,595 @@
+{
+  "Entry to MSCI Global Standard Cap": [
+    [
+      "Progress to MSCI Global Standard Cap",
+      ">",
+      "0"
+    ],
+    [
+      "Price Needed to Enter MSCI Standard Cap",
+      ">",
+      "0"
+    ],
+    [
+      "Price",
+      ">",
+      "0"
+    ],
+    [
+      "Market Cap",
+      ">",
+      "37,007,555,000,000"
+    ],
+    [
+      "MSCI - 1Y Liquidity",
+      "=",
+      "1"
+    ],
+    [
+      "Minimum-Adjusted FF",
+      ">",
+      "0"
+    ],
+    [
+      "High Shareholder Concentration List",
+      "=",
+      "No"
+    ]
+  ],
+  "Entry to MSCI Global Small Cap": [
+    [
+      "Progress to MSCI Global Small Cap",
+      ">",
+      "0"
+    ],
+    [
+      "Price Needed to Enter MSCI Small Cap",
+      ">",
+      "0"
+    ],
+    [
+      "Price",
+      ">",
+      "0"
+    ],
+    [
+      "Market Cap",
+      ">",
+      "11,223,230,000,000"
+    ],
+    [
+      "MSCI - 1Y Liquidity",
+      "=",
+      "1"
+    ],
+    [
+      "Minimum-Adjusted FF",
+      ">",
+      "0.15"
+    ],
+    [
+      "High Shareholder Concentration List",
+      "=",
+      "No"
+    ]
+  ],
+  "Exit from MSCI Global Standard Cap": [
+    [
+      "Price / MSCI Global Standards Cap Exit Ratio",
+      ">",
+      "0"
+    ],
+    [
+      "Price Needed to Downgrade from MSCI Global Standard Cap",
+      ">",
+      "0"
+    ],
+    [
+      "Price",
+      ">",
+      "0"
+    ],
+    [
+      "Monthly Net Foreign Buy/Sell",
+      ">",
+      "-1E+14"
+    ],
+    [
+      "1M Foreign Change",
+      ">",
+      "-1E+14"
+    ],
+    [
+      "Minimum-Adjusted FF",
+      ">",
+      "0"
+    ],
+    [
+      "High Shareholder Concentration List",
+      "",
+      ""
+    ]
+  ],
+  "Exit from MSCI Global Small Cap": [
+    [
+      "Price / MSCI Global Small Cap Exit Ratio",
+      ">",
+      "0"
+    ],
+    [
+      "Price Needed to Downgrade from MSCI Small Cap",
+      ">",
+      "0"
+    ],
+    [
+      "Price",
+      ">",
+      "0"
+    ],
+    [
+      "Monthly Net Foreign Buy/Sell",
+      ">",
+      "-1E+14"
+    ],
+    [
+      "Minimum-Adjusted FF",
+      ">",
+      "0"
+    ],
+    [
+      "Minimum-Adjusted FF",
+      ">",
+      "0"
+    ],
+    [
+      "High Shareholder Concentration List",
+      "",
+      ""
+    ]
+  ],
+  "Daily Accumulation": [
+    [
+      "Daily Accum/Distrib",
+      ">",
+      "0"
+    ],
+    [
+      "Market Cap",
+      ">",
+      "1,000,000,000,000"
+    ],
+    [
+      "1 Day Price Returns (%)",
+      "<",
+      "0"
+    ]
+  ],
+  "Cornering": [
+    [
+      "1M Shareholder Change",
+      "<",
+      "0"
+    ],
+    [
+      "%1M Retail Change",
+      "<",
+      "0"
+    ],
+    [
+      "1M FF >1% Change",
+      ">=",
+      "0"
+    ],
+    [
+      "3M Shareholder Change",
+      "<",
+      "0"
+    ],
+    [
+      "6M Shareholder Change",
+      "<",
+      "0"
+    ],
+    [
+      "1Y Shareholder Change",
+      "<",
+      "100"
+    ]
+  ],
+  "Foreign Accumulation": [
+    [
+      "%1M Foreign Change",
+      ">",
+      "0"
+    ],
+    [
+      "%1M Retail Change",
+      "<",
+      "0"
+    ],
+    [
+      "Monthly Net Foreign Buy/Sell",
+      ">",
+      "0"
+    ],
+    [
+      "Net Foreign Buy Streak",
+      ">",
+      "0"
+    ],
+    [
+      "Daily Net Foreign Buy/Sell",
+      ">",
+      "-1000000000"
+    ]
+  ],
+  "Ritel Cutloss": [
+    [
+      "1M Shareholder Change",
+      "<",
+      "0"
+    ],
+    [
+      "%1M Retail Change",
+      "<",
+      "0"
+    ],
+    [
+      "3M Shareholder Change",
+      "<",
+      "0"
+    ],
+    [
+      "6M Shareholder Change",
+      ">",
+      "0"
+    ]
+  ],
+  "Emiten Buyback": [
+    [
+      "%1M Institution Change",
+      ">",
+      "0"
+    ],
+    [
+      "1M Shareholder Change",
+      "<",
+      "0"
+    ],
+    [
+      "%1M Retail Change",
+      "<",
+      "0"
+    ],
+    [
+      "1M FF >1% Change",
+      "<=",
+      "0"
+    ]
+  ],
+  "Foreign Reversal": [
+    [
+      "Daily Net Foreign Buy/Sell",
+      ">=",
+      "0"
+    ],
+    [
+      "Net Foreign Buy Streak",
+      ">=",
+      "0"
+    ],
+    [
+      "Monthly Net Foreign Buy/Sell",
+      ">=",
+      "-1000000000"
+    ],
+    [
+      "3 Month Net Foreign Flow",
+      "<",
+      "-1000000000"
+    ]
+  ],
+  "Akumulasi Reksadana Asing": [
+    [
+      "1M Reksadana Foreign Accum",
+      ">",
+      "-1000000000"
+    ],
+    [
+      "%1M Reksadana Foreign Accum",
+      ">",
+      "-1"
+    ],
+    [
+      "No. of Shares held by ETF",
+      ">",
+      "0"
+    ],
+    [
+      "% Shares held by ETF",
+      ">",
+      "-1"
+    ]
+  ],
+  "Entry to FTSE Universe": [
+    [
+      "Price",
+      ">",
+      "0"
+    ],
+    [
+      "FTSE - Price Needed to Enter FTSE Large Cap",
+      ">",
+      "0"
+    ],
+    [
+      "FTSE - Progress to Enter FTSE Large Cap",
+      ">",
+      "0"
+    ],
+    [
+      "FTSE - Price Needed to Enter FTSE Mid Cap",
+      ">",
+      "0"
+    ],
+    [
+      "FTSE - Progress to Enter FTSE Mid Cap",
+      ">",
+      "0"
+    ],
+    [
+      "FTSE - Progress to Enter FTSE Small Cap",
+      ">",
+      "0"
+    ],
+    [
+      "FTSE - Price Needed to Enter FTSE Small Cap",
+      ">",
+      "0"
+    ],
+    [
+      "FTSE Liquidity Criteria",
+      "=",
+      "1"
+    ],
+    [
+      "Minimum-Adjusted FF",
+      ">",
+      "0"
+    ],
+    [
+      "High Shareholder Concentration List",
+      "=",
+      "No"
+    ]
+  ],
+  "Entry to FTSE Large Cap": [
+    [
+      "Price",
+      ">",
+      "0"
+    ],
+    [
+      "Sector",
+      "",
+      ""
+    ],
+    [
+      "FTSE - Progress to Enter FTSE Large Cap",
+      ">",
+      "0"
+    ],
+    [
+      "FTSE - Price Needed to Enter FTSE Large cap",
+      ">",
+      "0"
+    ],
+    [
+      "FTSE Liquidity Criteria",
+      "=",
+      "1"
+    ],
+    [
+      "Minimum-Adjusted FF",
+      ">=",
+      "0.05"
+    ],
+    [
+      "High Shareholder Concentration List",
+      "=",
+      "No"
+    ]
+  ],
+  "Downgrade to FTSE Mid Cap": [
+    [
+      "Price Needed to Downgrade to FTSE Mid Cap",
+      ">",
+      "0"
+    ],
+    [
+      "Price / FTSE Mid Cap Downgrade Ratio",
+      ">",
+      "0"
+    ],
+    [
+      "Price",
+      ">",
+      "0"
+    ],
+    [
+      "FTSE Liquidity Criteria",
+      "=",
+      "1"
+    ],
+    [
+      "Minimum-Adjusted FF",
+      ">",
+      "0"
+    ],
+    [
+      "High Shareholder Concentration List",
+      "",
+      ""
+    ]
+  ],
+  "Downgrade to FTSE Small Cap": [
+    [
+      "Price Needed to Downgrade to FTSE Small Cap",
+      ">",
+      "0"
+    ],
+    [
+      "Price / FTSE Small Cap Downgrade Ratio",
+      ">",
+      "0"
+    ],
+    [
+      "Price",
+      ">",
+      "0"
+    ],
+    [
+      "FTSE Liquidity Criteria",
+      "=",
+      "1"
+    ],
+    [
+      "Minimum-Adjusted FF",
+      ">",
+      "0"
+    ],
+    [
+      "High Shareholder Concentration List",
+      "",
+      ""
+    ]
+  ],
+  "Exit from FTSE Universe": [
+    [
+      "FTSE - Price / FTSE Universe Exit Ratio",
+      ">",
+      "0"
+    ],
+    [
+      "FTSE - Price Needed to Exit FTSE Universe",
+      ">",
+      "0"
+    ],
+    [
+      "Price",
+      ">",
+      "0"
+    ],
+    [
+      "FTSE Liquidity Criteria",
+      ">=",
+      "0"
+    ],
+    [
+      "Minimum-Adjusted FF",
+      ">",
+      "0"
+    ],
+    [
+      "High Shareholder Concentration List",
+      "",
+      ""
+    ]
+  ],
+  "Fair Price (PE/PBV)": [
+    [
+      "Price",
+      ">",
+      "0"
+    ],
+    [
+      "Price PE 9",
+      ">",
+      "0"
+    ],
+    [
+      "PE 9 Upside",
+      ">",
+      "0"
+    ],
+    [
+      "Price PBV 1",
+      ">",
+      "0"
+    ],
+    [
+      "PBV 1 Upside",
+      ">",
+      "0"
+    ],
+    [
+      "Market Cap",
+      ">",
+      "1E+12"
+    ]
+  ],
+  "Ritel Buying": [
+    [
+      "%1M Retail Change",
+      ">",
+      "-0.1"
+    ],
+    [
+      "1M Shareholder Change",
+      ">",
+      "-0.1"
+    ],
+    [
+      "3M Shareholder Change",
+      ">",
+      "-0.1"
+    ],
+    [
+      "6M Shareholder Change",
+      ">",
+      "-0.1"
+    ],
+    [
+      "1Y Shareholder Change",
+      ">",
+      "-0.1"
+    ]
+  ],
+  "Dividend Play": [
+    [
+      "Price",
+      ">",
+      "0"
+    ],
+    [
+      "Sector",
+      "",
+      ""
+    ],
+    [
+      "Dividend FY",
+      ">",
+      "0"
+    ],
+    [
+      "Dividend Yield",
+      ">",
+      "0.1"
+    ],
+    [
+      "Dividend Payment Streak (Annual)",
+      ">=",
+      "3"
+    ],
+    [
+      "Average Dividend Yield (5 Year)",
+      ">=",
+      "0.05"
+    ],
+    [
+      "Current EPS (TTM)",
+      ">",
+      "0"
+    ]
+  ]
+}
