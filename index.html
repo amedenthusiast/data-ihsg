@@ -81,6 +81,24 @@ th{position:relative;overflow:hidden;text-overflow:ellipsis}
 #assessment .chat{max-height:310px;overflow:auto;white-space:pre-wrap;background:var(--bg);border-radius:9px;padding:12px;margin:12px 0}
 .legend{margin-top:8px}
 #assessment-connect[hidden]{display:none}
+th,td{text-align:left}
+.rows table{min-width:0;max-width:none;table-layout:fixed}
+.rows th,.rows td{padding:0}
+.rows th{overflow:visible}.rows td{overflow:hidden}
+.cell{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:8px 10px}
+th .cell button{display:block;min-width:0;width:100%;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;background:transparent;color:inherit;border:0;border-radius:0;padding:0;text-align:left;font:inherit}
+.resize{z-index:1;width:10px;right:-4px}
+.ownership-change{font-weight:750}
+.neutral{color:#e6b950}
+[data-theme="light"] .neutral{color:#906300}
+.column-options{display:flex;flex-wrap:wrap;gap:7px 16px;padding:8px 0}
+.column-options label{display:flex;align-items:center;gap:4px}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:12px;align-items:start}
+.summary-grid section{margin:0}
+.summary-grid dl{margin:0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px}
+.summary-grid dd{margin:0;text-align:right;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.summary-grid dt{color:var(--muted)}
+.cli-link{display:inline-block;color:var(--accent);margin-top:10px}
 </style>
 </head>
 <body>
@@ -110,6 +128,7 @@ const assessment = document.querySelector("#assessment");
 const locale = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 });
 const palette = ["#52e0bd","#7ba8ff","#ae98f6","#ffd280","#ff8298","#71cadf"];
 const format = value => Number.isFinite(value) ? locale.format(value) : "—";
+const integer = value => Number.isFinite(value) ? new Intl.NumberFormat("id-ID",{maximumFractionDigits:0}).format(value) : "—";
 const signed = value => (value > 0 ? "+" : "") + format(value);
 const decimal2 = new Intl.NumberFormat("id-ID",{minimumFractionDigits:2,maximumFractionDigits:2});
 const pct = value => Number.isFinite(value) ? decimal2.format(value)+"%" : "—";
@@ -136,7 +155,7 @@ const aliases = new Map();
 const view = {page:"ihsg", screen:"single", detail:"summary", ticker:"BBRI", range:"3M", cum:false, metric:"Weight to IHSG", order:"desc", value:"", rules:[], preset:"", ownerSearch:"", origin:"", status:"", balanceUnit:"pct", investorOrigin:"",offset:0};
 const screens = {single:"Single Criteria",custom:"Custom Screener",own5:"Kepemilikan 5%",own1:"Kepemilikan 1%"};
 const details = {summary:"Summary",balance:"Balance Position",investor:"Investor Type",own5:"Kepemilikan 5%",own1:"Kepemilikan 1%"};
-const pages = {ihsg:"IHSG",screen:"Screener",detail:"Stock Detail"};
+const pages = {ihsg:"IHSG",screen:"Screener",detail:"Stock Detail",cli:"IDX CLI"};
 const metricOptions = entries => Object.fromEntries(entries.map(([key, info]) => [key, info[0]]));
 function select(field, options, value, label) {
   return `<select data-field="${field}" aria-label="${label}">${Object.entries(options).map(([key,name]) =>
@@ -163,26 +182,51 @@ function cards(items) {
     `<div class="card"><small>${label}</small><strong class="${style}">${value}</strong></div>`).join("")}</div>`;
 }
 const columnWidths = new Map();
-function table(head, body) {
+const tableSorts = new Map();
+const hiddenColumns = {own5:new Set(),own1:new Set()};
+const plain = html => String(html).replace(/<[^>]*>/g,"").replace(/&(?:amp|lt|gt|quot|#39);/g,"x");
+const compare = (a,b,order) => {
+  if(a==null || b==null)return Number(a==null)-Number(b==null);
+  const d=typeof a==="number"&&typeof b==="number"?a-b:String(a).localeCompare(String(b),"id",{numeric:true});
+  return order==="asc"?d:-d;
+};
+function table(head, body, id="", keys=head, sort=tableSorts.get(id)) {
   if (!body.length) return '<p class="empty">Tidak ada hasil untuk filter ini.</p>';
-  const cols = head.map(label=>{
-    const width=columnWidths.get(label) ?? Math.max(66,Math.min(290,26+label.length*8));
-    return `<col style="width:${width}px">`;
+  const measure=document.createElement?.("canvas").getContext("2d");
+  const widths=head.map((label,i)=>{
+    if(columnWidths.has(id+"|"+keys[i]))return columnWidths.get(id+"|"+keys[i]);
+    if(measure)measure.font="600 12px Inter, sans-serif";
+    let size=(measure?.measureText(plain(label)).width??plain(label).length*8)+40;
+    if(measure)measure.font="14px Inter, sans-serif";
+    for(const row of body){
+      const text=plain(row[i]);
+      size=Math.max(size,(measure?.measureText(text).width??text.length*8)+24+(String(row[i]).includes("<button")?18:0));
+    }
+    return Math.ceil(size);
+  });
+  const cols = widths.map(width=>`<col style="width:${width}px">`).join("");
+  const headers=head.map((col,i)=>{
+    const key=keys[i];
+    const active=sort?.key===key;
+    const control=id && key!=="No."?`<button type="button" data-action="sort" data-table="${id}" data-value="${escape(key)}">${col}${active?(sort.order==="asc"?" ↑":" ↓"):""}</button>`:col;
+    return `<th scope="col" data-column="${escape(id+"|"+key)}"${active?` aria-sort="${sort.order==="asc"?"ascending":"descending"}"`:""}><span class="cell">${control}</span><span class="resize" role="separator" aria-label="Lebar kolom" aria-orientation="vertical" tabindex="0"></span></th>`;
   }).join("");
-  return `<div class="rows"><table><colgroup>${cols}</colgroup><thead><tr>${head.map(col=>`<th scope="col">${col}<span class="resize" role="separator" aria-label="Lebar kolom" aria-orientation="vertical" tabindex="0"></span></th>`).join("")}</tr></thead><tbody>${body.map(row=>`<tr>${row.map(value=>`<td>${value}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  return `<div class="rows"><table style="width:${widths.reduce((a,b)=>a+b,0)}px"><colgroup>${cols}</colgroup><thead><tr>${headers}</tr></thead><tbody>${body.map(row=>`<tr>${row.map(value=>`<td><span class="cell">${value}</span></td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 function resizeColumn(handle, width) {
   const header=handle.parentElement;
-  const col=header.closest("table").querySelectorAll("col")[header.cellIndex];
-  const key=header.textContent.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  const size=Math.max(54,Math.round(width));
-  col.style.width=size+"px";
-  columnWidths.set(key,size);
+  const grid=header.closest("table");
+  const cols=[...grid.querySelectorAll("col")];
+  const size=Math.max(0,Math.round(width));
+  cols[header.cellIndex].style.width=size+"px";
+  grid.style.width=cols.reduce((total,col)=>total+parseFloat(col.style.width),0)+"px";
+  columnWidths.set(header.dataset.column,size);
 }
 app.addEventListener("pointerdown",event=>{
   const handle=event.target.closest(".resize");
   if (!handle) return;
   event.preventDefault();
+  event.stopPropagation();
   handle.setPointerCapture(event.pointerId);
   const start=event.clientX, width=handle.parentElement.getBoundingClientRect().width;
   const move=e=>resizeColumn(handle,width+e.clientX-start);
@@ -208,21 +252,33 @@ function hbars(values, formatter, diverging = false) {
 }
 const dateLabel = date => new Intl.DateTimeFormat("id-ID",{dateStyle:"medium",timeZone:"UTC"}).format(new Date(date+"T00:00:00Z"));
 function plotFrame(points, legends, mode, unit, fixedMax) {
-  const width=1020,height=260,left=74,right=1000,top=18,bottom=220;
+  const width=1020,height=260,left=74,right=mode==="flow"?948:1000,top=18,bottom=220;
   const step=(right-left)/points.length;
   const x=i=>left+(i+.5)*step;
-  const valid=points.flatMap(p=>p.values).filter(Number.isFinite);
+  const valid=points.flatMap(p=>mode==="flow"?[p.values[0]]:p.values).filter(Number.isFinite);
   if (!valid.length) return '<p class="empty">Data tidak tersedia untuk periode ini.</p>';
   const low=mode==="line"&&fixedMax==null?Math.min(...valid):Math.min(0,...valid);
-  const high=fixedMax??Math.max(mode==="bar"?0:low,...valid);
+  const high=fixedMax??Math.max(...valid,mode==="flow"?0:low);
   const span=high-low||1;
   const y=v=>bottom-(v-low)*(bottom-top)/span;
-  const fmt=value=>unit==="%"?pct(value):format(value)+(unit?" "+unit:"");
-  const axis=Array.from({length:5},(_,i)=>low+i*span/4).map(v=>`<line class="grid" x1="${left}" x2="${right}" y1="${y(v)}" y2="${y(v)}"/><text x="${left-8}" y="${y(v)+4}" text-anchor="end">${fmt(v)}</text>`).join("");
-  const labels=mode==="stack"?points.map((_,i)=>i):[...new Set([0,.25,.5,.75,1].map(v=>Math.round((points.length-1)*v)))];
+  const fmt=value=>unit==="%"?pct(value):(unit==="poin"?integer(value):format(value))+(unit?" "+unit:"");
+  const axisFmt=value=>unit==="%"?integer(value)+"%":integer(value);
+  const flowValues=mode==="flow"?points.map(p=>p.values[1]).filter(Number.isFinite):[];
+  const flowLow=Math.min(0,...flowValues),flowHigh=Math.max(0,...flowValues);
+  const zero=(0-low)/span;
+  const below=Math.max(-flowLow,0),above=Math.max(flowHigh,0);
+  // The zero lines remain aligned on the two independent flow axes.
+  const cumulativeSpan=Math.max(zero>0?below/zero:0,zero<1?above/(1-zero):0,1);
+  const opposite=mode==="flow"&&(zero===0&&below>0||zero===1&&above>0);
+  const cLow=opposite?flowLow:-zero*cumulativeSpan;
+  const cSpan=opposite?(flowHigh-flowLow||1):cumulativeSpan;
+  const cy=v=>bottom-(v-cLow)*(bottom-top)/cSpan;
+  const axis=Array.from({length:5},(_,i)=>low+i*span/4).map((v,i)=>`<line class="grid" x1="${left}" x2="${right}" y1="${y(v)}" y2="${y(v)}"/><text x="${left-8}" y="${y(v)+4}" text-anchor="end">${axisFmt(v)}</text>${mode==="flow"?`<text x="${right+8}" y="${y(v)+4}">${axisFmt(cLow+i*cSpan/4)}</text>`:""}`).join("");
+  const monthly=mode==="stack"&&points.some(p=>p.raw);
+  const labels=monthly?points.map((_,i)=>i):[...new Set([0,.25,.5,.75,1].map(v=>Math.round((points.length-1)*v)))];
   const dates=labels.map(i=>{
     const date=points[i].date;
-    const label=mode==="stack"?new Intl.DateTimeFormat("id-ID",{month:"short",year:"2-digit",timeZone:"UTC"}).format(new Date(date+"T00:00:00Z")):date.slice(5);
+    const label=monthly?new Intl.DateTimeFormat("id-ID",{month:"short",year:"2-digit",timeZone:"UTC"}).format(new Date(date+"T00:00:00Z")):date.slice(5);
     return `<text x="${x(i)}" y="245" text-anchor="middle">${label}</text>`;
   }).join("");
   let shape="";
@@ -239,15 +295,20 @@ function plotFrame(points, legends, mode, unit, fixedMax) {
       const dots=points.map((p,i)=>Number.isFinite(p.values[n])?`<circle cx="${x(i)}" cy="${y(p.values[n])}" r="1.8" fill="${color}"/>`:"").join("");
       return `<path d="${d}" fill="none" stroke="${color}" stroke-width="2.4"/>${dots}`;
     }).join("");
-  }else if(mode==="bar"){
+  }else if(mode==="bar"||mode==="flow"){
     shape=points.map((p,i)=>{const v=p.values[0];return Number.isFinite(v)?`<rect x="${x(i)-step*.33}" y="${Math.min(y(0),y(v))}" width="${step*.66}" height="${Math.abs(y(v)-y(0))}" fill="${v<0?palette[4]:palette[0]}"/>`:"";}).join("");
+    if(mode==="flow"){
+      const path=points.map((p,i)=>Number.isFinite(p.values[1])?`${x(i)},${cy(p.values[1])}`:"").filter(Boolean).join(" ");
+      shape+=`<polyline points="${path}" fill="none" stroke="${legends[1][1]}" stroke-width="2.7" vector-effect="non-scaling-stroke"/>`;
+    }
   }else{
     shape=points.map((p,i)=>{
+      if(!p.values.every(Number.isFinite))return "";
       let total=0;
       return p.values.map((v,n)=>{
         const prev=total;total+=v;
         const label=dateLabel(p.date)+" · "+legends[n][0]+": "+fmt(v)+(p.raw?" · "+format(p.raw[n])+" saham":"");
-        return v>0?`<rect class="chart-hit" tabindex="0" x="${x(i)-step*.3}" y="${y(total)}" width="${step*.6}" height="${y(prev)-y(total)}" fill="${legends[n][1]}" data-tip="${escape(label)}" aria-label="${escape(label)}"/>`:"";
+        return v>0?`<rect class="chart-hit" tabindex="${points.length<20?0:-1}" x="${x(i)-step*.3}" y="${y(total)}" width="${step*.6}" height="${y(prev)-y(total)}" fill="${legends[n][1]}" stroke="var(--panel)" stroke-width=".7" data-tip="${escape(label)}" aria-label="${escape(label)}"/>`:"";
       }).join("");
     }).join("");
   }
@@ -295,20 +356,22 @@ function marketPage() {
   const points=market.filter(row=>row.date>=start.toISOString().slice(0,10));
   const chg=(last.price/previous.price-1)*100;
   let running=0;
-  const series=key=>points.map(row=>({date:row.date,values:[row[key]]}));
+  const pricesByDay=points.map(row=>({date:row.date,values:[row.open,row.high,row.low,row.price]}));
   const flows=points.map(row=>{
-    if(!Number.isFinite(row.flow))return {date:row.date,values:[null]};
+    if(!Number.isFinite(row.flow))return {date:row.date,values:[null,null]};
     running+=row.flow;
-    return {date:row.date,values:[view.cum?running:row.flow]};
+    return {date:row.date,values:[row.flow,running]};
   });
   return heading("Harga IHSG & Foreign Flow","",select("range",{"1M":"1M","3M":"3M","6M":"6M",YTD:"YTD","1Y":"1Y"},view.range,"Periode grafik"))+
-    cards([["IHSG terakhir",format(last.price)+" poin","market"],["Perubahan harian",pp(chg)+"%","market",tone(chg)],["Net foreign flow",moneyT(running),"market",tone(running)]])+
+    cards([["IHSG terakhir",integer(last.price)+" poin","market"],["Perubahan harian",pp(chg)+"%","market",tone(chg)],["Net foreign flow",moneyT(running),"market",tone(running)]])+
     updateLine("market","update-line")+
-    panel("IHSG Price Movement",null,plotFrame(series("price"),[["Penutupan",palette[0]]],"line","poin"))+
-    panel("Foreign Flow",null,`<div class="controls">${tabs({daily:"Harian",cum:"Kumulatif"},"flow",view.cum?"cum":"daily")}</div>`+
-      plotFrame(flows,[[view.cum?"Kumulatif":"Harian",palette[0]]],view.cum?"line":"bar","T"))+
+    panel("IHSG Price Movement",null,plotFrame(pricesByDay,[["Open","#f97316"],["High","#22c55e"],["Low","#ef4444"],["Close","#3b82f6"]],"line","poin")+
+      (points.some(row=>!Number.isFinite(row.open))?'<p class="stamp">Open kosong pada tanggal tanpa harga pembukaan di sumber.</p>':""))+
+    panel("Foreign Flow",null,'<p class="stamp">Harian (kiri) · Kumulatif dari awal periode (kanan) · Rp triliun</p>'+
+      plotFrame(flows,[["Harian",palette[0]],["Kumulatif","#f59e0b"]],"flow","T"))+
     panel("Foreign / Local Participation",null,plotFrame(points.map(row=>({date:row.date,values:[row.foreign,row.local]})),
-      [["Foreign",palette[1]],["Local",palette[0]]],"line","%",100));
+      [["Foreign","#2563eb"],["Local","#f97316"]],"stack","%",100));
+
 }
 function rulesMatch(stock, rules) {
   return rules.every(([key,op,input]) => {
@@ -328,14 +391,13 @@ function rulesMatch(stock, rules) {
   });
 }
 function matchingStocks() {
-  const key = view.metric;
+  const headerSort=tableSorts.get("screener");
+  const key = headerSort?.key || view.metric;
   const selected = view.screen === "custom" ? screenRows.filter(stock => rulesMatch(stock,view.rules)) :
-    screenRows.filter(stock => view.value === "" || String(stock[key]) === view.value);
-  return selected.slice().sort((a,b) => {
-    if (a[key] == null || b[key] == null) return Number(a[key] == null)-Number(b[key] == null) || a.code.localeCompare(b.code);
-    const delta = typeof a[key] === "number" && typeof b[key] === "number" ? a[key]-b[key] : String(a[key]).localeCompare(String(b[key]));
-    return (view.order==="asc"?delta:-delta) || a.code.localeCompare(b.code);
-  });
+    screenRows.filter(stock => view.value === "" || String(stock[view.metric]) === view.value);
+  const order=headerSort?.order||view.order;
+  return selected.slice().sort((a,b)=>compare(key==="Ticker"?a.code:a[key],key==="Ticker"?b.code:b[key],order)||a.code.localeCompare(b.code));
+
 }
 function screenerControls() {
   const sort = select("metric",metricOptions(Object.entries(screenMetrics)),view.metric,"Metrik") +
@@ -367,7 +429,7 @@ function screenPage() {
   return head + panel(view.screen==="single"?"Single Criteria":"Custom Screener","screen",screenerControls()+paging+
     '<div class="stamp">'+Object.entries(screenPeriods).map(([key,value])=>escape(key+" "+value)).join(" · ")+'</div>'+
     table(["No.","Ticker",...keys.map(escape)],rows.map((row,i) =>
-      [view.offset+i+1,ticker(row.code),...keys.map(key=>screenMetrics[key][1](row[key]))])));
+      [view.offset+i+1,ticker(row.code),...keys.map(key=>screenMetrics[key][1](row[key]))]),"screener",["No.","Ticker",...keys],tableSorts.get("screener")||{key:view.metric,order:view.order}));
 }
 function filteredOwners(source, code = "") {
   const search = view.ownerSearch.trim().toLowerCase();
@@ -376,22 +438,32 @@ function filteredOwners(source, code = "") {
     (!search || (row[0]+" "+row[1]).toLowerCase().includes(search)) &&
     (!view.origin || row[2] === view.origin) && (!view.status || row[6] === view.status));
 }
+const ownershipHeaders=["No.","Ticker","Pemegang saham","Asal","Kategori","Saham sebelumnya","Saham terbaru","Porsi sebelumnya","Porsi terbaru","Δ (pp)","Status"];
 function ownership(source, code = "") {
   const rows = filteredOwners(source,code);
   const change = row => row[4]!=null && row[5]!=null ? row[4]-row[5] : null;
-  const sorted = rows.slice().sort((a,b) => code ? (b[4]??-1)-(a[4]??-1) : Math.abs(change(b)??0)-Math.abs(change(a)??0));
+  const sort=tableSorts.get(source);
+  const raw=row=>[null,row[0],row[1],row[2],row[3],row[8],row[7],row[5],row[4],change(row),row[6]];
+  const sorted = rows.slice().sort((a,b)=>sort?compare(raw(a)[ownershipHeaders.indexOf(sort.key)],raw(b)[ownershipHeaders.indexOf(sort.key)],sort.order):
+    code?(b[4]??-1)-(a[4]??-1):Math.abs(change(b)??0)-Math.abs(change(a)??0));
   const filters = `<div class="controls"><input data-field="ownerSearch" value="${escape(view.ownerSearch)}" aria-label="Cari pemegang saham atau ticker" placeholder="Cari pemegang saham atau ticker">
     ${select("origin",{"":"Semua asal",Lokal:"Lokal",Asing:"Asing"},view.origin,"Asal investor")}
     ${select("status",{"":"Semua status",New:"New",Existing:"Existing",Exited:"Exited"},view.status,"Status kepemilikan")}
     <button data-action="apply">Cari</button><span class="stamp">${rows.length} posisi</span></div>`;
-  const mark=(value,html)=>value===null||value===0?html:`<span class="${tone(value)}">${html}</span>`;
-  const grid = table(["No.","Ticker","Pemegang saham","Asal","Kategori","Saham sebelumnya","Saham terbaru","Porsi sebelumnya","Porsi terbaru","Δ (pp)","Status"],sorted.map(
-    (row,i)=>[i+1,ticker(row[0]),escape(row[1]),escape(row[2]),escape(row[3]),format(row[8]),format(row[7]),pct(row[5]),mark(change(row),pct(row[4])),
-      mark(change(row),pp(change(row))),mark(row[6]==="New"?1:row[6]==="Exited"?-1:0,escape(row[6]))]));
-  return panel((code?"Daftar pemegang saham":"Kepemilikan")+" "+(source==="own5"?"5%":"1%"),source,filters+grid);
+  const options=`<details class="owner-columns"${view.openColumns===source?" open":""}><summary>Kolom yang ditampilkan</summary><div class="column-options">${ownershipHeaders.map((label,i)=>`<label><input type="checkbox" data-owner="${source}" data-column="${i}" ${hiddenColumns[source].has(i)?"":"checked"}>${label}</label>`).join("")}</div></details>`;
+  const mark=(value,html)=>value===null||value===0?html:`<strong class="ownership-change ${tone(value)}">${html}</strong>`;
+  const shown=ownershipHeaders.map((_,i)=>i).filter(i=>!hiddenColumns[source].has(i));
+  const project=row=>shown.map(i=>row[i]);
+  const page=code?sorted:sorted.slice(view.offset,view.offset+100);
+  const paging=code?"":`<div class="controls"><button data-action="prev" ${view.offset===0?"disabled":""}>Sebelumnya</button><span>${page.length?view.offset+1:0}–${view.offset+page.length} dari ${sorted.length} posisi</span><button data-action="next" ${view.offset+page.length>=sorted.length?"disabled":""}>Berikutnya</button></div>`;
+  const grid = table(project(ownershipHeaders),page.map(
+    (row,i)=>project([(code?0:view.offset)+i+1,ticker(row[0]),escape(row[1]),escape(row[2]),escape(row[3]),integer(row[8]),integer(row[7]),pct(row[5]),mark(change(row),pct(row[4])),
+      mark(change(row),pp(change(row))),mark(row[6]==="New"?1:row[6]==="Exited"?-1:0,escape(row[6]))])),source);
+  return panel((code?"Daftar pemegang saham":"Kepemilikan")+" "+(source==="own5"?"5%":"1%"),source,filters+options+paging+grid);
 }
 const balanceLabels = ["Local","Foreign"].flatMap(origin=>"CP PF IB ID MF OT SC FD IS".split(" ").map(group=>origin+" "+group));
-const balanceColors=balanceLabels.map((_,i)=>`hsl(${(i%9)*38+13} ${i<9?70:64}% ${i<9?57:36}%)`);
+const balanceColors=["#ff0000","#00aa00","#004cff","#ffaa00","#00b6d6","#cc00d9","#f06000","#7540e8","#009770",
+  "#880000","#005200","#00197b","#947100","#00616e","#67066a","#873500","#39138f","#004c37"];
 let balanceByTicker={}, investorByTicker={};
 function balances(stock) {
   const rows=(balanceByTicker[stock.code]||[]).map(([date,raw])=>{
@@ -410,12 +482,21 @@ function investorDetail(code) {
   const controls=`<div class="controls">${select("investorOrigin",{"":"Semua",Local:"Lokal",Foreign:"Foreign"},view.investorOrigin,"Asal investor")}</div>`;
   return panel("Investor Type",null,controls+(sources.investor?.period?`<p class="stamp">Periode ${escape(sources.investor.period)}</p>`:"")+
     ["Local","Foreign"].filter(origin=>!view.investorOrigin||view.investorOrigin===origin).map(origin=>{
+      const id="investor-"+origin;
+      const headers=["Kategori","Prev. Shares","Curr. Shares","Change Shares","Prev. Pct","Curr. Pct","Change %"];
+      const sort=tableSorts.get(id);
       const rows=filtered.filter(row=>row[0]===origin).map(([,label,old,now])=>{
-        const before=old*100/prior,after=now*100/current,change=after-before;
-        return [escape(label),format(old),format(now),signed(now-old),pct(before),pct(after),
-          `<span class="${change===0?"":tone(change)}">${pp(change)}</span>`];
+        const before=old*100/prior,after=now*100/current;
+        return [label,old,now,now-old,before,after,after-before];
       });
-      return `<h2>${origin==="Local"?"Lokal":"Foreign"}</h2>`+table(["Kategori","Saham sebelumnya","Saham terbaru","Δ saham","Porsi sebelumnya","Porsi terbaru","Δ porsi (pp)"],rows);
+      if(sort){
+        const index=headers.indexOf(sort.key);
+        rows.sort((a,b)=>compare(a[index],b[index],sort.order));
+      }
+      return `<h2>${origin==="Local"?"Lokal":"Foreign"}</h2>`+table(headers,rows.map(([label,old,now,change,before,after,delta])=>
+        [escape(label),integer(old),integer(now),integer(change),pct(before),pct(after),
+         `<span class="${delta===0?"":tone(delta)}" title="Perubahan dalam poin persentase">${pp(delta)} pp</span>`]),id);
+
     }).join(""));
 }
 function stockPage() {
@@ -429,15 +510,81 @@ function stockPage() {
   if(view.detail.startsWith("own"))return head+ownership(view.detail,stock.code);
   if(view.detail==="balance")return head+balances(stock);
   if(view.detail==="investor")return head+investorDetail(stock.code);
-  const show=(key,fn)=>Number.isFinite(stock[key])?fn(stock[key]):"—";
-  return head+cards([["Harga",show("price",metrics.price[1]),"screen"],["Kapitalisasi pasar",show("cap",moneyT),"screen"],
-    ["Bobot IHSG",show("weight",pct),"screen"],["Free float",show("free",pct),"screen"],
-    ["Dividend yield",show("yield",pct),"screen"],["HSC",escape(stock.hsc??"—"),"screen"]]);
+  return head+stockSummary(stock);
+}
+let summaries={};
+function stockSummary(stock) {
+  const row=summaries[stock.code]||{};
+  const money=value=>Number.isFinite(value)?"Rp "+integer(value):"—";
+  const frac=value=>pct(Number.isFinite(value)?value*100:null);
+  const ratio=(value,base)=>Number.isFinite(value)&&base>0?value/base:null;
+  const positivePrice=value=>value>0?money(value):"—";
+  const membership=value=>value===true||value==="Yes"||value===1?true:value===false||value==="No"||value===0?false:null;
+  const yesNo=value=>value==null?"—":value?"Yes":"No";
+  const standard=membership(row.standard),small=membership(row.small);
+  const current=row.price??stock.price;
+  const daily=row.dailyChange;
+  const dailyText=Number.isFinite(daily)?
+    `<small class="${daily===0?"neutral":tone(daily)}"><b>${daily>0?"+":""}${frac(daily)}</b> · Stockbit ${escape(row.dailyDate||"")}${row.dailyPrice>0&&row.dailyPrice!==current?" · "+money(row.dailyPrice):""}</small>`:"";
+  const conditional=(applies,value)=>applies===false?"Not applicable":applies==null?"—":value;
+  const range=(min,max)=>min>0&&max>0?money(Math.min(min,max))+" – "+money(Math.max(min,max)):
+    positivePrice(min>0?min:max);
+  const distance=target=>current>0&&target>0?frac(current/target-1):"—";
+  const eligible=standard===true||small===true?false:standard===false&&small===false?true:null;
+  const groups=[
+    ["Shares & Scripless",[
+      ["No. of Shares",integer(row.shares)],["Total Scripless",integer(row.scripless)],
+      ["% Scripless",frac(ratio(row.scripless,row.shares))],["1 Month Scripless Change",integer(row.scriplessChange)],
+      ["% 1 Month Scripless Change",frac(row.scriplessPctChange)]
+    ]],
+    ["Free Float",[
+      ["BEI",frac(row.bei)],["FF FTSE",frac(row.ftse)],["FF MSCI",frac(row.ffMsci)],
+      ["HSC",escape(row.hsc??stock.hsc??"—")]
+    ]],
+    ["Balance Position Analysis",[
+      ["% Local",pct(row.local)],["1 Month Institution Change",frac(row.institutionChange)],
+      ["% Foreign",pct(row.foreign)],["1 Month Foreign Change",frac(row.foreignChange)],
+      ["% Ritel",frac(row.retail)],["1 Month Ritel Change",frac(row.retailChange)]
+    ]],
+    ["Shareholders",[
+      ["No. of Shareholders",integer(row.holders)],
+      ...["1M","3M","6M","1Y"].flatMap(period=>[
+        [period+" Shareholder Change",integer(row["holders"+period])],
+        ["%"+period+" Shareholder Change",frac(row["holdersPct"+period])]
+      ])
+    ]],
+    ["MSCI Membership",[["Global Standard Cap",yesNo(standard)],["Small Cap",yesNo(small)]]],
+    ["MSCI Global Standard Cap Constituents",[
+      ["Downgrade from MSCI Global Standard Cap",conditional(standard,range(row.standardLow,row.standardHigh))],
+      ["Distance from Standard Cap Exit",conditional(standard,distance(row.standardLow))]
+    ]],
+    ["MSCI Global Small Cap Constituents",[
+      ["Upgrade to MSCI Global Standard Cap",conditional(small,positivePrice(row.upgrade))],
+      ["Progress to Global Standard Cap",conditional(small,frac(ratio(current,row.upgrade)))],
+      ["Downgrade from MSCI Small Cap",conditional(small,range(row.smallLow,row.smallHigh))],
+      ["Distance from Small Cap Exit",conditional(small,distance(row.smallLow))],
+      ["Free Float <15%",conditional(small,yesNo(Number.isFinite(row.ffMsci)?row.ffMsci<.15:null))]
+    ]],
+    ["Non-MSCI Constituents",[
+      ["Enter MSCI Global Standard Cap",conditional(eligible,positivePrice(row.enterStandard))],
+      ["Progress to Global Standard Cap",conditional(eligible,frac(ratio(current,row.enterStandard)))],
+      ["Enter MSCI Small Cap",conditional(eligible,positivePrice(row.enterSmall))],
+      ["Progress to Small Cap",conditional(eligible,frac(row.progressSmall))]
+    ]]
+  ];
+  return cards([["Last Price",money(current)+dailyText],["Market Cap",money(row.marketCap??stock["Market Cap"])],["Bobot IHSG",pct(stock.weight)]])+
+    `<div class="summary-grid">${groups.map(([title,metrics])=>panel(title,null,`<dl>${metrics.map(([label,value])=>
+      `<dt>${escape(label)}</dt><dd>${value}</dd>`).join("")}</dl>`)).join("")}</div>`;
+}
+function idxPage() {
+  return heading("IDX CLI","Aplikasi desktop untuk kueri IDX.")+
+    panel("Kueri IDX",null,`<p>Gunakan formulir lokal untuk Quote, History, dan Ownership. Hasil dapat disimpan sebagai CSV atau JSON.</p>
+    <a class="cli-link" href="https://github.com/amedenthusiast/data-ihsg/blob/main/INTEGRATIONS.md#idx-cli" target="_blank" rel="noopener">Unduh dan buka aplikasi IDX CLI ↗</a>`);
 }
 function render(focusField) {
-  document.querySelector("#ai-fab").hidden = view.page==="ihsg";
+  document.querySelector("#ai-fab").hidden = !["screen","detail"].includes(view.page);
   nav.innerHTML = tabs(pages,"page",view.page);
-  app.innerHTML = ({ihsg:marketPage,screen:screenPage,detail:stockPage})[view.page]();
+  app.innerHTML = ({ihsg:marketPage,screen:screenPage,detail:stockPage,cli:idxPage})[view.page]();
   if (focusField) app.querySelector(`[data-field="${focusField}"]`)?.focus();
 }
 let assessmentPrompt="";
@@ -497,6 +644,7 @@ async function showAssessment() {
 }
 function changeField(field,value) {
   view.offset = 0;
+  if(field==="metric"||field==="order"||field==="preset")tableSorts.delete("screener");
   const [,rulePart,ruleIndex] = field.split("-");
   if (field.startsWith("rule-")) {
     view.rules[Number(ruleIndex)][{key:0,op:1,input:2}[rulePart]] = value;
@@ -514,6 +662,16 @@ app.addEventListener("input", event => {
   if (event.target.matches("input") && field) changeField(field,event.target.value);
 });
 app.addEventListener("change", event => {
+  const {owner,column}=event.target.dataset;
+  if(owner){
+    const index=Number(column);
+    if(event.target.checked)hiddenColumns[owner].delete(index);
+    else if(hiddenColumns[owner].size<ownershipHeaders.length-1)hiddenColumns[owner].add(index);
+    view.openColumns=owner;
+    render();
+    app.querySelector(`[data-owner="${owner}"][data-column="${index}"]`)?.focus();
+    return;
+  }
   if (!event.target.matches("select")) return;
   const {field} = event.target.dataset;
   changeField(field,event.target.value);
@@ -539,6 +697,15 @@ document.addEventListener("click", async event => {
   const {action,value} = button.dataset;
   if (!action) return;
   if (action === "ai") { showAssessment(); return; }
+  if(action==="sort"){
+    const id=button.dataset.table;
+    const previous=tableSorts.get(id) || (id==="screener"?{key:view.metric,order:view.order}:null);
+    tableSorts.set(id,{key:value,order:previous?.key===value&&previous.order==="desc"?"asc":"desc"});
+    view.offset=0;
+    render();
+    [...app.querySelectorAll("[data-action=sort]")].find(target=>target.dataset.table===id&&target.dataset.value===value)?.focus();
+    return;
+  }
   if (action === "page") view.page=value;
   if (["page","screen","apply","remove"].includes(action)) view.offset=0;
   if (action === "next") view.offset+=100;
@@ -546,7 +713,6 @@ document.addEventListener("click", async event => {
   if (action === "screen") { view.screen=value; view.ownerSearch=""; view.origin=""; view.status=""; }
   if (action === "detail") { view.detail=value; view.ownerSearch=""; view.origin=""; view.status=""; }
   if (action === "ticker") { view.ticker=value; view.page="detail"; view.detail="summary"; }
-  if (action === "flow") view.cum = value==="cum";
   if (action === "add") { view.rules.push(["Market Cap",">",""]); view.preset=""; }
   if (action === "remove") { view.rules.splice(Number(value),1); view.preset=""; }
   render();
@@ -570,13 +736,13 @@ async function loadDashboard() {
   market=[];
   presetRules={};
   try {
-    const documents=await Promise.all(["dashboard.json.gz","presets.json","extra_metrics.json.gz","market.json","details.json.gz"].map(async url=>{
+    const documents=await Promise.all(["dashboard.json.gz","presets.json","extra_metrics.json.gz","market.json","details.json.gz","summary.json.gz"].map(async url=>{
       const response=await fetch(url);
       if (!response.ok) throw Error(url);
       if (url.endsWith(".gz")) return new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).json();
       return response.json();
     }));
-    const [data,presets,extras,marketData,detailsData]=documents;
+    const [data,presets,extras,marketData,detailsData,summaryData]=documents;
     presetRules=presets;
     market=marketData.rows;
     owners.own5=data.own5 || [];
@@ -587,6 +753,7 @@ async function loadDashboard() {
     screenPeriods=data.screenerPeriods || {};
     balanceByTicker=detailsData.balance || {};
     investorByTicker=detailsData.investor || {};
+    summaries=summaryData.stocks||{};
     for (const [key,source] of Object.entries(data.sources)) {
       sources[key]=source;
       actual.add(key);

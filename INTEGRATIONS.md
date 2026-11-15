@@ -12,19 +12,41 @@ the workbook, with missing closing prices preserved as gaps.
 
 ## Gemini
 
-Deploy `gemini-worker.js` as a Cloudflare Worker or adapt the endpoint for
-another server runtime. Configure the server variables `DASHBOARD_ORIGIN`
-(the GitHub Pages origin), `GEMINI_MODEL` (a model enabled for your API
-project), and secrets `GEMINI_API_KEY` and `ASSESSMENT_TOKEN`. Keep the
-access token distinct from the Gemini API key. Use a random access token
-and rate-limit requests at the host. Set the GitHub repository variable
-`ASSESSMENT_ENDPOINT` to the HTTPS Worker URL and redeploy. The browser
-accepts an access token in memory for the current tab session.
+1. Open [Google AI Studio API Keys](https://aistudio.google.com/apikey),
+   revoke the old key if it was shared, and create a replacement.
+2. In [Cloudflare Workers & Pages](https://dash.cloudflare.com/), choose
+   **Create application**, create a Worker, and deploy it.
+3. Open the Worker editor, replace the example code with
+   [gemini-worker.js](./gemini-worker.js), then deploy the new version.
+4. In the Worker's **Settings → Variables and Secrets**, add these entries.
+
+   | Name | Type | Value |
+   | --- | --- | --- |
+   | `DASHBOARD_ORIGIN` | Text | `https://amedenthusiast.github.io` |
+   | `GEMINI_MODEL` | Text | `gemini-3.1-flash-lite`, if enabled in your project |
+   | `GEMINI_API_KEY` | Secret | Your replacement AI Studio key |
+   | `ASSESSMENT_TOKEN` | Secret | A separate long random access token |
+
+5. Copy your Worker's HTTPS URL. In GitHub, go to **Settings → Secrets and
+   variables → Actions → Variables → New repository variable**. Set
+   `ASSESSMENT_ENDPOINT` to the Worker URL. Run **Data IHSG Pages** from
+   the GitHub Actions page and wait for deployment to succeed.
+6. Open Screener or Stock Detail, click **AI Assessment**, and enter the
+   `ASSESSMENT_TOKEN` from step 4. The dashboard sends the displayed
+   assessment context to your Worker, which calls Gemini. The token is
+   held in browser memory for this tab. Keep the Gemini API key in Cloudflare.
 
 ## IDX CLI
 
-IDX CLI's Linux build can run on a GitHub-hosted Ubuntu runner without WSL
-on the user's PC. To add a feed, choose the provider and command for the
-required metric, pin the CLI version, validate the output schema, then
-map it into the dashboard input. The Pages job currently uses Trading/Data
-exports as its source.
+On Windows, download the repository ZIP from **Code → Download ZIP**.
+Extract it and double-click `start-idx-gui.cmd`. The launcher requires
+Python 3 with Tkinter on Windows, and runs the existing IDX CLI installed
+in the default WSL distro in the background. Once installed, you can use
+the form without writing or running any WSL commands yourself. On Linux
+or macOS with IDX CLI on PATH and Tkinter installed, run `python3 idx_gui.py`.
+
+Enter a ticker, choose **Quote**, **History**, or **Ownership**, then select
+**Ambil data**. For your first ownership query, click **Sinkron KSEI ≥1%**
+to download the maintained register. Use **Simpan hasil** to export CSV or
+JSON on your device. The app displays results locally. Pages continues to
+use Trading/Data for its own dataset.

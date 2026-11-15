@@ -64,7 +64,15 @@ def parse_pdf(path):
     if path.stem.lower()!=date.strftime("ds_%y%m%d"):
         raise ValueError("Report date disagrees with filename")
     flow = abs(numeric(net[2])) * (-1 if net[1]=="Net Sell" else 1)
-    return {"date":date.isoformat(),"price":numeric(price[1]),"flow":flow/1000,**participation}
+    levels = re.search(r"\bPrevious\s+Highest\s+Lowest\s+("+NUM+r")\s+("+NUM+r")\s+("+NUM+r")",first)
+    opening = re.search(r"(?m)^Opening(?: Price)?\s+("+NUM+r")\s*$",first)
+    close = numeric(price[1])
+    ohlc = {}
+    if levels and numeric(levels[3]) <= close <= numeric(levels[2]):
+        ohlc.update(high=numeric(levels[2]),low=numeric(levels[3]))
+        if opening and ohlc["low"]<=numeric(opening[1])<=ohlc["high"]:
+            ohlc["open"]=numeric(opening[1])
+    return {"date":date.isoformat(),"price":close,"flow":flow/1000,**participation,**ohlc}
 
 
 def main():
@@ -78,13 +86,15 @@ def main():
     if args.seed_xlsx:
         from openpyxl import load_workbook
         w=load_workbook(args.seed_xlsx,read_only=True,data_only=True,keep_links=False)
-        for row in w["IHSG Data"].values:
+        records = iter(w["IHSG Data"].values)
+        headers = next(row for row in records if row[0]=="Date")
+        fields = {key:headers.index(label) for key,label in (("open","Open"),("high","High"),("low","Low"),("price","Close")) if label in headers}
+        for row in records:
             if isinstance(row[0],datetime):
                 date=row[0].date().isoformat()
                 participation={name:row[i]*100 for name,i in (("foreign",11),("local",12)) if isinstance(row[i],(int,float)) and 0<=row[i]<=1}
                 rows[date]={"date":date,**participation}
-                if isinstance(row[4],(int,float)) and row[4]>0:
-                    rows[date]["price"]=row[4]
+                rows[date].update({key:row[i] for key,i in fields.items() if isinstance(row[i],(int,float)) and row[i]>0})
                 if isinstance(row[13],(int,float)):
                     rows[date]["flow"]=row[13]/1e12
         w.close()
@@ -92,7 +102,7 @@ def main():
         with path.open(encoding="utf-8-sig",newline="") as source:
             for row in csv.DictReader(source,delimiter="\t"):
                 date=datetime.strptime(row["Date"],"%Y-%m-%d").date().isoformat()
-                fields={"price":"Close","flow":"Net Foreign Buy/Sell","foreign":"Foreign (%)","local":"Domestic (%)"}
+                fields={"price":"Close","open":"Open","high":"High","low":"Low","flow":"Net Foreign Buy/Sell","foreign":"Foreign (%)","local":"Domestic (%)"}
                 try:
                     values={k:numeric(row[v]) for k,v in fields.items() if row.get(v) not in (None,"","-")}
                 except ValueError:
