@@ -737,7 +737,7 @@ async function loadDashboard() {
   market=[];
   presetRules={};
   try {
-    const documents=await Promise.all(["dashboard.json.gz","presets.json","extra_metrics.json.gz","market.json","details.json.gz","summary.json.gz"].map(async url=>{
+    const documents=await Promise.all(["dashboard.json.gz","presets.json","extra_metrics.json.gz","market.json?schema=ohlc","details.json.gz","summary.json.gz"].map(async url=>{
       const response=await fetch(url);
       if (!response.ok) throw Error(url);
       if (url.endsWith(".gz")) return new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).json();
