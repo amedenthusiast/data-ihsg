@@ -257,7 +257,7 @@ function plotFrame(points, legends, mode, unit, fixedMax) {
   const x=i=>left+(i+.5)*step;
   const valid=points.flatMap(p=>mode==="flow"?[p.values[0]]:p.values).filter(Number.isFinite);
   if (!valid.length) return '<p class="empty">Data tidak tersedia untuk periode ini.</p>';
-  const low=mode==="line"&&fixedMax==null?Math.min(...valid):Math.min(0,...valid);
+  const low=(mode==="line"||mode==="candle")&&fixedMax==null?Math.min(...valid):Math.min(0,...valid);
   const high=fixedMax??Math.max(...valid,mode==="flow"?0:low);
   const span=high-low||1;
   const y=v=>bottom-(v-low)*(bottom-top)/span;
@@ -282,7 +282,20 @@ function plotFrame(points, legends, mode, unit, fixedMax) {
     return `<text x="${x(i)}" y="245" text-anchor="middle">${label}</text>`;
   }).join("");
   let shape="";
-  if(mode==="line"){
+  if(mode==="candle"){
+    const half=Math.min(9,step*.34);
+    shape=points.map(({values:[open,high,low,close]},i)=>{
+      if(!Number.isFinite(close))return "";
+      const hasOpen=Number.isFinite(open);
+      const color=hasOpen?(close===open?"#b88413":close>open?"#179c64":"#d84753"):"var(--muted)";
+      const wick=Number.isFinite(high)&&Number.isFinite(low)?
+        `<line x1="${x(i)}" x2="${x(i)}" y1="${y(high)}" y2="${y(low)}" stroke="${color}" stroke-width="1.3"/>`:"";
+      const body=hasOpen?
+        `<rect x="${x(i)-half}" y="${Math.min(y(open),y(close))}" width="${2*half}" height="${Math.max(1.4,Math.abs(y(close)-y(open)))}" fill="${color}"/>`:
+        `<line x1="${x(i)}" x2="${x(i)+half}" y1="${y(close)}" y2="${y(close)}" stroke="${color}" stroke-width="1.6"/>`;
+      return `<g class="${hasOpen?"candle":"close-tick"}">${wick}${body}</g>`;
+    }).join("");
+  }else if(mode==="line"){
     shape=legends.map((_,n)=>{
       let previous=false;
       const d=points.map((p,i)=>{
@@ -317,7 +330,7 @@ function plotFrame(points, legends, mode, unit, fixedMax) {
     return `<rect class="chart-hit" tabindex="${points.length<=65?"0":"-1"}" x="${x(i)-step/2}" y="${top}" width="${step}" height="${bottom-top}" fill="transparent" data-tip="${escape(label)}" aria-label="${escape(label)}"/>`;
   }).join("");
   return `<div class="chart-wrap"><svg class="chart" viewBox="0 0 ${width} ${height}" aria-label="Grafik ${escape(legends.map(l=>l[0]).join(", "))}">${axis}${shape}${hits}${dates}</svg><div class="chart-tip" hidden></div></div>`+
-    (legends.length>1?`<div class="legend">${legends.map(([label,color])=>`<span><i class="dot" style="background:${color}"></i>${escape(label)}</span>`).join("")}</div>`:"");
+    (mode!=="candle"&&legends.length>1?`<div class="legend">${legends.map(([label,color])=>`<span><i class="dot" style="background:${color}"></i>${escape(label)}</span>`).join("")}</div>`:"");
 }
 function showTip(event) {
   const hit=event.target.closest("[data-tip]");
@@ -363,10 +376,10 @@ function marketPage() {
     return {date:row.date,values:[row.flow,running]};
   });
   return heading("Harga IHSG & Foreign Flow","",select("range",{"1M":"1M","3M":"3M","6M":"6M",YTD:"YTD","1Y":"1Y"},view.range,"Periode grafik"))+
-    cards([["IHSG terakhir",integer(last.price)+" poin","market"],["Perubahan harian",pp(chg)+"%","market",tone(chg)],["Net foreign flow",moneyT(running),"market",tone(running)]])+
+    cards([["IHSG terakhir",integer(last.price),"market"],["Perubahan harian",pp(chg)+"%","market",tone(chg)],["Net foreign flow",moneyT(running),"market",tone(running)]])+
     updateLine("market","update-line")+
-    panel("IHSG Price Movement",null,plotFrame(pricesByDay,[["Open","#f97316"],["High","#22c55e"],["Low","#ef4444"],["Close","#3b82f6"]],"line","poin")+
-      `<p class="stamp">Open tersedia untuk ${points.filter(row=>Number.isFinite(row.open)).length} dari ${points.length} sesi.${
+    panel("IHSG Price Movement",null,plotFrame(pricesByDay,[["Open"],["High"],["Low"],["Close"]],"candle","poin")+
+      `<p class="stamp">Open tersedia untuk ${points.filter(row=>Number.isFinite(row.open)).length} dari ${points.length} sesi. Tanda abu-abu menunjukkan Close saat Open kosong.${
         points.some(row=>row.openSource==="Investing.com")?' Sumber tambahan <a class="cli-link" style="margin:0" href="https://id.investing.com/indices/idx-composite-historical-data" target="_blank" rel="noopener">Investing.com</a>.':""}</p>`)+
     panel("Foreign Flow",null,'<p class="stamp">Harian (kiri) · Kumulatif dari awal periode (kanan) · Rp triliun</p>'+
       plotFrame(flows,[["Harian",palette[0]],["Kumulatif","#f59e0b"]],"flow","T"))+
@@ -525,36 +538,46 @@ function stockSummary(stock) {
   const standard=membership(row.standard),small=membership(row.small);
   const current=row.price??stock.price;
   const daily=row.dailyChange;
-  const dailyText=Number.isFinite(daily)?
-    `<small class="${daily===0?"neutral":tone(daily)}"><b>${daily>0?"+":""}${frac(daily)}</b> · Stockbit ${escape(row.dailyDate||"")}${row.dailyPrice>0&&row.dailyPrice!==current?" · "+money(row.dailyPrice):""}</small>`:"";
+  const hasQuote=Number.isFinite(daily)&&row.dailyPrice>0;
+  const changeStyle=value=>value===0?"neutral":tone(value);
+  const price=hasQuote?
+    `<span class="${changeStyle(daily)}" title="Stockbit ${escape(row.dailyDate||"")}">${money(row.dailyPrice)} (${daily>0?"+":""}${frac(daily)})</span>`:money(current);
+  const mark=(value,style)=>`<strong class="${style}">${value}</strong>`;
+  const movement=(value,formatted,direction=1)=>Number.isFinite(value)?mark(formatted,changeStyle(value*direction)):formatted;
+  const memberMark=value=>value==null?"—":mark(yesNo(value),value?"positive":"negative");
   const conditional=(applies,value)=>applies===false?"Not applicable":applies==null?"—":value;
   const range=(min,max)=>min>0&&max>0?money(Math.min(min,max))+" – "+money(Math.max(min,max)):
     positivePrice(min>0?min:max);
   const distance=target=>current>0&&target>0?frac(current/target-1):"—";
   const eligible=standard===true||small===true?false:standard===false&&small===false?true:null;
+  const enterStandard=stock["Price Needed to Enter MSCI Standard Cap"];
+  const enterSmall=stock["Price Needed to Enter MSCI Small Cap"];
+  const smallHasSentinel=enterSmall===1e6&&Number.isFinite(row.ffMsci)&&row.ffMsci<.15;
+  const smallPrice=smallHasSentinel?"Not applicable (FF <15%)":positivePrice(enterSmall);
+  const smallProgress=smallHasSentinel?"Not applicable (FF <15%)":frac(ratio(current,enterSmall));
   const groups=[
     ["Shares & Scripless",[
       ["No. of Shares",integer(row.shares)],["Total Scripless",integer(row.scripless)],
-      ["% Scripless",frac(ratio(row.scripless,row.shares))],["1 Month Scripless Change",integer(row.scriplessChange)],
-      ["% 1 Month Scripless Change",frac(row.scriplessPctChange)]
+      ["% Scripless",frac(ratio(row.scripless,row.shares))],["1 Month Scripless Change",movement(row.scriplessChange,integer(row.scriplessChange))],
+      ["% 1 Month Scripless Change",movement(row.scriplessPctChange,frac(row.scriplessPctChange))]
     ]],
     ["Free Float",[
       ["BEI",frac(row.bei)],["FF FTSE",frac(row.ftse)],["FF MSCI",frac(row.ffMsci)],
       ["HSC",escape(row.hsc??stock.hsc??"—")]
     ]],
     ["Balance Position Analysis",[
-      ["% Local",pct(row.local)],["1 Month Institution Change",frac(row.institutionChange)],
-      ["% Foreign",pct(row.foreign)],["1 Month Foreign Change",frac(row.foreignChange)],
-      ["% Ritel",frac(row.retail)],["1 Month Ritel Change",frac(row.retailChange)]
+      ["% Local",pct(row.local)],["1 Month Institution Change",movement(row.institutionChange,frac(row.institutionChange))],
+      ["% Foreign",pct(row.foreign)],["1 Month Foreign Change",movement(row.foreignChange,frac(row.foreignChange))],
+      ["% Ritel",frac(row.retail)],["1 Month Ritel Change",movement(row.retailChange,frac(row.retailChange),-1)]
     ]],
     ["Shareholders",[
       ["No. of Shareholders",integer(row.holders)],
       ...["1M","3M","6M","1Y"].flatMap(period=>[
-        [period+" Shareholder Change",integer(row["holders"+period])],
-        ["%"+period+" Shareholder Change",frac(row["holdersPct"+period])]
+        [period+" Shareholder Change",movement(row["holders"+period],integer(row["holders"+period]),-1)],
+        ["%"+period+" Shareholder Change",movement(row["holdersPct"+period],frac(row["holdersPct"+period]),-1)]
       ])
     ]],
-    ["MSCI Membership",[["Global Standard Cap",yesNo(standard)],["Small Cap",yesNo(small)]]],
+    ["MSCI Membership",[["Global Standard Cap",memberMark(standard)],["Small Cap",memberMark(small)]]],
     ["MSCI Global Standard Cap Constituents",[
       ["Downgrade from MSCI Global Standard Cap",conditional(standard,range(row.standardLow,row.standardHigh))],
       ["Distance from Standard Cap Exit",conditional(standard,distance(row.standardLow))]
@@ -567,13 +590,13 @@ function stockSummary(stock) {
       ["Free Float <15%",conditional(small,yesNo(Number.isFinite(row.ffMsci)?row.ffMsci<.15:null))]
     ]],
     ["Non-MSCI Constituents",[
-      ["Enter MSCI Global Standard Cap",conditional(eligible,positivePrice(row.enterStandard))],
-      ["Progress to Global Standard Cap",conditional(eligible,frac(ratio(current,row.enterStandard)))],
-      ["Enter MSCI Small Cap",conditional(eligible,positivePrice(row.enterSmall))],
-      ["Progress to Small Cap",conditional(eligible,frac(row.progressSmall))]
+      ["Enter MSCI Global Standard Cap",conditional(eligible,positivePrice(enterStandard))],
+      ["Progress to Global Standard Cap",conditional(eligible,frac(ratio(current,enterStandard)))],
+      ["Enter MSCI Small Cap",conditional(eligible,smallPrice)],
+      ["Progress to Small Cap",conditional(eligible,smallProgress)]
     ]]
   ];
-  return cards([["Last Price",money(current)+dailyText],["Market Cap",money(row.marketCap??stock["Market Cap"])],["Bobot IHSG",pct(stock.weight)]])+
+  return cards([["Last Price",price],["Market Cap",money(row.marketCap??stock["Market Cap"])],["Bobot IHSG",pct(stock.weight)]])+
     `<div class="summary-grid">${groups.map(([title,metrics])=>panel(title,null,`<dl>${metrics.map(([label,value])=>
       `<dt>${escape(label)}</dt><dd>${value}</dd>`).join("")}</dl>`)).join("")}</div>`;
 }
