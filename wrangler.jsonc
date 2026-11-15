@@ -1,10 +1,10 @@
 {
-  "name": "data-ihsg",
-  "main": "./gemini-worker.js",
-  "compatibility_date": "2026-11-15",
-  "workers_dev": true,
+  // ...
   "vars": {
+    "ASSESSMENT_TOKEN": "data-ihsg-gl",
     "DASHBOARD_ORIGIN": "https://amedenthusiast.github.io",
+    "GEMINI_API_KEY": "AQ.Ab8RN6KK9OsLRhvFM-b5ushDGE1oYx0ZChdWIBWhbz-NCP4PhA",
     "GEMINI_MODEL": "gemini-3.1-flash-lite"
-  }
+  },
+  // ...
 }
