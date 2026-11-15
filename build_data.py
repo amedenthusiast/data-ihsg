@@ -57,9 +57,9 @@ def ownership5(path):
         before, after = number(row[13]), number(row[16])
         if before is None and after is None:
             continue
-        origin = {"L": "Lokal", "F": "Asing"}.get(str(row[10]).strip().upper(), "-")
+        origin = {"L": "Lokal", "F": "Asing"}.get(str(row[10]).strip().upper(), "—")
         status = "New" if (before or 0) == 0 else "Exited" if (after or 0) == 0 else "Existing"
-        record = [code, str(name).strip(), origin, "-", after, before, status, number(row[15]), number(row[12])]
+        record = [code, str(name).strip(), origin, "—", after, before, status, number(row[15]), number(row[12])]
         if row[0] is not None:
             records.append(record)
     if not records:
@@ -72,7 +72,7 @@ def ownership1(path):
     for row in read_xlsx(path):
         if len(row) < 13 or not isinstance(row[0], datetime) or not row[1] or not row[3]:
             continue
-        code, name, kind, origin = row[1], str(row[3]).strip(), row[4] or "-", row[6]
+        code, name, kind, origin = row[1], str(row[3]).strip(), row[4] or "—", row[6]
         percentage, quantity = number(row[12]), number(row[11])
         key = (code, " ".join(name.casefold().split()), origin)
         records = groups.setdefault(date_label(row[0]), {})
@@ -83,7 +83,7 @@ def ownership1(path):
             else:
                 percentage = sum(v for v in (prior[3],percentage) if v is not None)
                 quantity = sum(v for v in (prior[4],quantity) if v is not None)
-        records[key] = (name, {"L": "Lokal", "F": "Asing"}.get(origin, "-"), kind, percentage, quantity)
+        records[key] = (name, {"L": "Lokal", "F": "Asing"}.get(origin, "—"), kind, percentage, quantity)
     if len(groups) != 1:
         raise ValueError(f"Expected one reporting period in {path.name}")
     return next(iter(groups.items()))
@@ -154,6 +154,26 @@ def screener_seed(path):
     try:
         screener = workbook["Screener"]
         catalogue = [list(row) for row in screener.iter_rows(min_row=4, max_row=136, min_col=2, max_col=7, values_only=True) if all(row[:3])]
+        canonical_ftse = {
+            "Price Neeeded to Enter FTSE Universe": "FTSE - Price Needed to Enter FTSE Universe",
+            "Price / FTSE Universe Exit Ratio": "FTSE - Price / FTSE Universe Exit Ratio",
+            "Progress to Enter FTSE Large Cap": "FTSE - Progress to Enter FTSE Large Cap",
+            "Price Needed to Enter FTSE Large Cap": "FTSE - Price Needed to Enter FTSE Large Cap",
+            "Price Needed to Downgrade to FTSE Mid Cap": "Price Needed to Downgrade to FTSE Mid Cap",
+            "Price / FTSE Mid Cap Downgrade Ratio": "Price / FTSE Mid Cap Downgrade Ratio",
+        }
+        for entry in catalogue:
+            name,dataset,column=entry[:3]
+            if dataset=="Master" and column in canonical_ftse:
+                entry[0]=canonical_ftse[column]
+            if dataset=="Stockbit" and name in {"Price","Market Cap"}:
+                entry[0]=name+" (Stockbit)"
+        existing={entry[2] for entry in catalogue if entry[1]=="Master"}
+        for column in canonical_ftse.keys()-existing:
+            shape="0.00%" if "Ratio" in column or column.startswith("Progress") else "#,###"
+            catalogue.append([canonical_ftse[column],"Master",column,"SORT",shape,"VALUE"])
+        if len({entry[0].casefold() for entry in catalogue})!=len(catalogue):
+            raise ValueError("Duplicate labels in Screener catalogue")
         sheets = {"Master":"Master", "Balance_Analysis":"Balance Analysis",
                   "Investor_Type_Analysis":"Investor Type Analysis", "Scripless":"Scripless", "Stockbit":"Stockbit"}
         tickers = {}
@@ -170,7 +190,8 @@ def screener_seed(path):
                     continue
                 record = tickers.setdefault(code, {"code": code, "name": code})
                 if source == "Master":
-                    record["name"] = row[headers.index("Name")] or code
+                    name=row[headers.index("Name")]
+                    record["name"] = name if isinstance(name,str) and name and not name.startswith("#") else code
                 for key, index in fields:
                     value = row[index]
                     if isinstance(value, (int, float, bool)) or isinstance(value, str) and value and not value.startswith("#"):
@@ -219,13 +240,15 @@ def refresh_screener(root,payload):
                 continue
             stock = stocks.setdefault(code,{"code":code,"name":row.get("Name") or code})
             for name,column,shape in fields:
-                raw = row[column]
+                raw = row.get(column) or ""
+                if name=="1 Day Price Returns (%)" and not raw:
+                    raw=row.get("Change%") or ""
                 value = number(raw)
                 if value is not None and raw.strip().endswith("%") and "%" in str(shape or ""):
                     value /= 100
                 stock[name] = value
     previous["Stockbit"] = date
-    publish(payload,"screen",list(stocks.values()),["Snapshot gabungan � periode menurut sumber"])
+    publish(payload,"screen",list(stocks.values()),["Snapshot gabungan · periode menurut sumber"])
 
 
 def main():
@@ -265,7 +288,7 @@ def main():
         publish(payload,"market",history,[history[0]["date"],history[-1]["date"]])
     if args.seed_screener:
         payload["catalogue"], rows, payload["screenerPeriods"] = screener_seed(args.seed_screener)
-        publish(payload,"screen",rows,["Snapshot Excel awal � periode berbeda menurut sumber"])
+        publish(payload,"screen",rows,["Snapshot Excel awal · periode berbeda menurut sumber"])
     else:
         refresh_screener(args.folder,payload)
     balance = balance_snapshots(args.folder)

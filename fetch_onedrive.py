@@ -10,7 +10,7 @@ from urllib.request import Request, urlopen
 
 GRAPH = "https://graph.microsoft.com/v1.0"
 WANTED = re.compile(
-    r"(?:Balancepos\d{8}\.txt|IHSG_Trading_Data_.*\.tsv|IHSG_Stock_Data_\d{4}-\d{2}-\d{2}\.csv|"
+    r"(?:ds_\d{6}\.pdf|Balancepos\d{8}\.txt|IHSG_Trading_Data_.*\.tsv|IHSG_Stock_Data_\d{4}-\d{2}-\d{2}\.csv|"
     r"peng-\d{4}-\d{2}(?:-\d{2})?-\d+-(?:lima-persen|satu-persen|klasifikasi)\.xlsx)$",
     re.IGNORECASE,
 )

@@ -36,17 +36,22 @@ jobs:
         with:
           python-version: '3.12'
       - name: Stage dashboard
+        env:
+          ASSESSMENT_ENDPOINT: ${{ vars.ASSESSMENT_ENDPOINT }}
         run: |
           mkdir site
-          cp index.html presets.json dashboard.json.gz extra_metrics.json.gz site/
+          cp index.html presets.json dashboard.json.gz extra_metrics.json.gz market.json details.json.gz site/
+          python -c 'import json,os; print(json.dumps({"endpoint":os.environ.get("ASSESSMENT_ENDPOINT", "")}))' > site/ai-config.json
       - name: Update from OneDrive
         env:
           INPUT_FOLDER: ${{ runner.temp }}/trading-data
         if: ${{ env.MS_CLIENT_SECRET != '' }}
         run: |
-          python -m pip install 'openpyxl==3.1.5'
+          python -m pip install 'openpyxl==3.1.5' 'PyMuPDF==1.28.0'
           python fetch_onedrive.py
           python build_data.py "$INPUT_FOLDER" site/dashboard.json.gz
+          python market_data.py "$INPUT_FOLDER" site/market.json
+          python detail_data.py "$INPUT_FOLDER" site/details.json.gz
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
