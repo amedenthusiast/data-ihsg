@@ -366,7 +366,8 @@ function marketPage() {
     cards([["IHSG terakhir",integer(last.price)+" poin","market"],["Perubahan harian",pp(chg)+"%","market",tone(chg)],["Net foreign flow",moneyT(running),"market",tone(running)]])+
     updateLine("market","update-line")+
     panel("IHSG Price Movement",null,plotFrame(pricesByDay,[["Open","#f97316"],["High","#22c55e"],["Low","#ef4444"],["Close","#3b82f6"]],"line","poin")+
-      (points.some(row=>!Number.isFinite(row.open))?'<p class="stamp">Open kosong pada tanggal tanpa harga pembukaan di sumber.</p>':""))+
+      `<p class="stamp">Open tersedia untuk ${points.filter(row=>Number.isFinite(row.open)).length} dari ${points.length} sesi.${
+        points.some(row=>row.openSource==="Investing.com")?' Sumber tambahan <a class="cli-link" style="margin:0" href="https://id.investing.com/indices/idx-composite-historical-data" target="_blank" rel="noopener">Investing.com</a>.':""}</p>`)+
     panel("Foreign Flow",null,'<p class="stamp">Harian (kiri) · Kumulatif dari awal periode (kanan) · Rp triliun</p>'+
       plotFrame(flows,[["Harian",palette[0]],["Kumulatif","#f59e0b"]],"flow","T"))+
     panel("Foreign / Local Participation",null,plotFrame(points.map(row=>({date:row.date,values:[row.foreign,row.local]})),
