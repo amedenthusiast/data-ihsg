@@ -404,10 +404,9 @@ function rulesMatch(stock, rules) {
     return ({">":() => value>target,">=":() => value>=target,"<=":() => value<=target,"!=":() => value!==target,"≥":() => value>=target,"<":() => value<target,"≤":() => value<=target,"=":() => value===target,"≠":() => value!==target})[op]?.() ?? false;
   });
 }
-function matchingStocks() {
-  const headerSort=tableSorts.get("screener");
+function matchingStocks(screen=view.screen, headerSort=tableSorts.get("screener")) {
   const key = headerSort?.key || view.metric;
-  const selected = view.screen === "custom" ? screenRows.filter(stock => rulesMatch(stock,view.rules)) :
+  const selected = screen === "custom" ? screenRows.filter(stock => rulesMatch(stock,view.rules)) :
     screenRows.filter(stock => view.value === "" || String(stock[view.metric]) === view.value);
   const order=headerSort?.order||view.order;
   return selected.slice().sort((a,b)=>compare(key==="Ticker"?a.code:a[key],key==="Ticker"?b.code:b[key],order)||a.code.localeCompare(b.code));
@@ -479,37 +478,44 @@ const balanceLabels = ["Local","Foreign"].flatMap(origin=>"CP PF IB ID MF OT SC 
 const balanceColors=["#ff0000","#00aa00","#004cff","#ffaa00","#00b6d6","#cc00d9","#f06000","#7540e8","#009770",
   "#880000","#005200","#00197b","#947100","#00616e","#67066a","#873500","#39138f","#004c37"];
 let balanceByTicker={}, investorByTicker={};
-function balances(stock) {
-  const rows=(balanceByTicker[stock.code]||[]).map(([date,raw])=>{
+function balanceRows(code) {
+  return (balanceByTicker[code]||[]).map(([date,raw])=>{
     const total=raw.reduce((a,b)=>a+b,0);
-    return {date,raw,values:raw.map(v=>v*100/total)};
+    return {date,raw,values:raw.map(v=>total>0?v*100/total:null)};
   });
+}
+function balances(stock) {
+  const rows=balanceRows(stock.code);
   return panel("Balance Position · %",null,rows.length?
     plotFrame(rows,balanceLabels.map((label,i)=>[label,balanceColors[i]]),"stack","%",100):
     '<p class="empty">Data ticker ini belum tersedia.</p>');
 }
-function investorDetail(code) {
+function investorRows(code) {
   const data=investorByTicker[code]||[];
-  const total=(i)=>data.reduce((a,row)=>a+row[i],0);
+  const total=i=>data.reduce((a,row)=>a+row[i],0);
   const prior=total(2),current=total(3);
-  const filtered=data.filter(row=>!view.investorOrigin||view.investorOrigin===row[0]);
+  return data.map(([origin,label,old,now])=>{
+    const before=prior>0?old*100/prior:null;
+    const after=current>0?now*100/current:null;
+    return [origin,label,old,now,now-old,before,after,before==null||after==null?null:after-before];
+  });
+}
+function investorDetail(code) {
+  const data=investorRows(code);
   const controls=`<div class="controls">${select("investorOrigin",{"":"Semua",Local:"Lokal",Foreign:"Foreign"},view.investorOrigin,"Asal investor")}</div>`;
   return panel("Investor Type",null,controls+(sources.investor?.period?`<p class="stamp">Periode ${escape(sources.investor.period)}</p>`:"")+
     ["Local","Foreign"].filter(origin=>!view.investorOrigin||view.investorOrigin===origin).map(origin=>{
       const id="investor-"+origin;
       const headers=["Kategori","Prev. Shares","Curr. Shares","Change Shares","Prev. Pct","Curr. Pct","Change %"];
       const sort=tableSorts.get(id);
-      const rows=filtered.filter(row=>row[0]===origin).map(([,label,old,now])=>{
-        const before=old*100/prior,after=now*100/current;
-        return [label,old,now,now-old,before,after,after-before];
-      });
+      const rows=data.filter(row=>row[0]===origin).map(row=>row.slice(1));
       if(sort){
         const index=headers.indexOf(sort.key);
         rows.sort((a,b)=>compare(a[index],b[index],sort.order));
       }
       return `<h2>${origin==="Local"?"Lokal":"Foreign"}</h2>`+table(headers,rows.map(([label,old,now,change,before,after,delta])=>
         [escape(label),integer(old),integer(now),integer(change),pct(before),pct(after),
-         `<span class="${delta===0?"":tone(delta)}" title="Perubahan dalam poin persentase">${pp(delta)} pp</span>`]),id);
+         `<span class="${delta==null||delta===0?"":tone(delta)}" title="Perubahan dalam poin persentase">${pp(delta)} pp</span>`]),id);
 
     }).join(""));
 }
@@ -622,33 +628,167 @@ document.querySelector("#assessment-connect").addEventListener("submit",event=>{
   input.value="";
   if(assessmentToken)showAssessment();
 });
+function assessmentDistribution(rows, key) {
+  const values = rows.map(row => key === "Ticker" ? row.code : row[key]);
+  const numeric = values.filter(Number.isFinite).sort((a,b) => a-b);
+  const categories = new Map();
+  for (const value of values) {
+    if (typeof value === "string" || typeof value === "boolean") {
+      categories.set(value, (categories.get(value) || 0) + 1);
+    }
+  }
+  return {
+    numericCount:numeric.length,
+    missingCount:values.length-numeric.length-[...categories.values()].reduce((a,b)=>a+b,0),
+    ...(numeric.length && {
+      min:numeric[0], median:(numeric[Math.floor((numeric.length-1)/2)]+numeric[Math.floor(numeric.length/2)])/2,
+      max:numeric.at(-1), positive:numeric.filter(value=>value>0).length,
+      negative:numeric.filter(value=>value<0).length
+    }),
+    ...(categories.size && {distinctCategories:categories.size,
+      mostFrequent:[...categories].sort((a,b)=>b[1]-a[1]).slice(0,8)})
+  };
+}
+function assessmentScreenerTab(rows, keys, filters) {
+  return {
+    filters, totalResults:rows.length,
+    metrics:keys.map(key=>{
+      const entry=catalogue.find(row=>row[0]===key);
+      return {key, source:entry?.[1], percentAsFraction:String(entry?.[4]??"").includes("%") ||
+        (!entry && /%|Ratio|Progress/.test(key)), distribution:assessmentDistribution(rows,key)};
+    }),
+    rankedExamples:[],
+    candidates:rows.slice(0,12).map(row=>[row.code,...keys.map(key=>key==="Ticker"?row.code:row[key]??null)])
+  };
+}
+function assessmentOwnership(source, rows, shortlists) {
+  const delta = row => row[4]!=null && row[5]!=null ? row[4]-row[5] : null;
+  const comparable = rows.map(delta).filter(Number.isFinite);
+  const ranked = rows.slice().sort((a,b)=>
+    Math.abs((b[4]??0)-(b[5]??0))-Math.abs((a[4]??0)-(a[5]??0)));
+  const counts = {};
+  for (const row of rows) counts[row[6]]=(counts[row[6]]||0)+1;
+  const order = shortlists ? [...new Set([
+    ...ranked.slice(0,4),
+    ...ranked.filter(row=>delta(row)>0).slice(0,3),
+    ...ranked.filter(row=>delta(row)<0).slice(0,3),
+    ...ranked.filter(row=>row[6]==="New").slice(0,2),
+    ...ranked.filter(row=>row[6]==="Exited").slice(0,2),
+    ...ranked.filter(row=>shortlists.has(row[0]) && (delta(row) || row[6]!=="Existing")).slice(0,6),
+    ...ranked
+  ])] : ranked;
+  return {
+    data:{source:sources[source], totalPositions:rows.length, tickerCount:new Set(rows.map(row=>row[0])).size,
+      statusCounts:counts, comparablePositions:comparable.length, increased:comparable.filter(n=>n>0).length,
+      decreased:comparable.filter(n=>n<0).length, unchanged:comparable.filter(n=>n===0).length, records:[]},
+    candidates:order.map(([ticker,holder,origin,type,after,before,status,sharesAfter,sharesBefore])=>
+      [ticker,holder,origin,type,before,after,sharesBefore,sharesAfter,status])
+  };
+}
+function balanceComparison(before, after) {
+  if(!before || !after || before.values[0]==null || after.values[0]==null)return null;
+  const changes=balanceLabels.map((label,i)=>[
+    label,after.raw[i]-before.raw[i],Number((after.values[i]-before.values[i]).toFixed(4))
+  ]);
+  const foreignShare=row=>row.values.slice(9).reduce((total,value)=>total+value,0);
+  return {
+    from:before.date,to:after.date,
+    foreignShareBeforePct:Number(foreignShare(before).toFixed(4)),
+    foreignShareAfterPct:Number(foreignShare(after).toFixed(4)),
+    largestChanges:changes.sort((a,b)=>Math.abs(b[2])-Math.abs(a[2])).slice(0,5)
+  };
+}
+function stockAssessment(code) {
+  const stock=screenRows.find(row=>row.code===code)||{};
+  const summary=summaries[code]||{};
+  const enterSmall=stock["Price Needed to Enter MSCI Small Cap"];
+  const balance=balanceRows(code);
+  const investor=investorRows(code);
+  return {
+    summary:{source:sources.screen,name:typeof stock.name==="string"&&!stock.name.startsWith("#")?stock.name:null,sector:stock.sector,
+      values:{...summary,price:summary.price??stock.price,marketCap:summary.marketCap??stock["Market Cap"],
+        scriplessPct:Number.isFinite(summary.scripless)&&summary.shares>0?summary.scripless/summary.shares:null,
+        enterMsciStandard:stock["Price Needed to Enter MSCI Standard Cap"],
+        enterMsciSmall:enterSmall===1e6&&summary.ffMsci<.15?null:enterSmall},
+      units:"Harga dan ambang MSCI dalam rupiah. local dan foreign sudah berskala 0–100. FF, dailyChange, scriplessPct, scriplessPctChange, retail, holdersPct*, dan perubahan institution/foreign/retail berskala 0–1. Gunakan dailyDate untuk tanggal kuotasi."},
+    balancePosition:{source:sources.balance, categories:balanceLabels,
+      columns:["date","sharesByCategory","percentageByCategory"],
+      changeColumns:["category","changeShares","changePP"],
+      fullPeriod:balanceComparison(balance.length>1?balance[0]:null,balance.at(-1)),
+      latestPeriod:balanceComparison(balance.at(-2),balance.at(-1)),
+      rows:balance.map(({date,raw,values})=>
+        [date,raw,values.map(value=>Number.isFinite(value)?Number(value.toFixed(4)):null)])},
+    investorType:{source:sources.investor,
+      columns:["origin","type","previousShares","currentShares","changeShares","previousPct","currentPct","changePP"],
+      rows:investor.map(([origin,...row])=>[origin,...row.map((value,i)=>i>=4&&Number.isFinite(value)?Number(value.toFixed(4)):value)])}
+  };
+}
+function assessmentContext(inDetail, sub, code) {
+  const context={tab:inDetail?"Stock Detail":"Screener", subtab:sub, ticker:code||null,
+    analysisFocus:inDetail?
+      "Sintesis Summary, seluruh bulan Balance Position, Investor Type, dan kedua ambang kepemilikan. Jelaskan perubahan awal→akhir dan bulan terakhir, kategori yang paling berkontribusi, dan keselarasan perubahan porsi dengan perubahan lembar. Bedakan periode sumber.":
+      "Bandingkan Single Criteria, Custom Screener, dan kedua ambang kepemilikan. Dahulukan subtab aktif. Gunakan distribusi seluruh hasil untuk pola umum dan contoh untuk ticker spesifik. Jelaskan perubahan 5% dan 1% serta bedakan periode sumber.",
+    screenerPeriods:screenPeriods};
+  const recordGroups=[];
+  let shortlist;
+  if(inDetail) {
+    Object.assign(context,stockAssessment(code));
+  } else {
+    const rules=view.rules.filter(([,op,value])=>op&&value.trim());
+    const sort=tableSorts.get("screener")||{key:view.metric,order:view.order};
+    const singleSort=sub==="single"?sort:{key:view.metric,order:view.order};
+    const customSort=sub==="custom"?sort:{key:view.metric,order:view.order};
+    const single=matchingStocks("single",singleSort);
+    const custom=matchingStocks("custom",customSort);
+    const singleTab=assessmentScreenerTab(single,[view.metric],
+      {metric:view.metric,value:view.value||null,sort:singleSort});
+    const customKeys=[...new Set([view.metric,...rules.map(([key])=>key)])];
+    const customTab=assessmentScreenerTab(custom,customKeys,
+      {preset:view.preset||null,rules,sort:customSort});
+    const {candidates:singleExamples,...singleData}=singleTab;
+    const {candidates:customExamples,...customData}=customTab;
+    context.singleCriteria=singleData;
+    context.customScreener=customData;
+    context.screenerExampleColumns="Ticker, lalu nilai sesuai urutan metrics.";
+    shortlist=new Set([...singleExamples,...customExamples].map(row=>row[0]));
+    recordGroups.push([singleData.rankedExamples,singleExamples],[customData.rankedExamples,customExamples]);
+  }
+  context.ownership={
+    columns:["ticker","holder","origin","type","previousPct","currentPct","previousShares","currentShares","status"],
+    note:"Satuan porsi 0–100. Kurangkan currentPct dan previousPct untuk perubahan poin persentase. Nilai null berarti tidak tersedia. New dan Exited merujuk pada perubahan cakupan laporan, bukan bukti transaksi. Jangan menjumlahkan posisi 5% dan 1%.",
+  };
+  for(const source of ["own5","own1"]) {
+    const rows=inDetail?owners[source].filter(row=>row[0]===code):sub===source?filteredOwners(source):owners[source];
+    const {data,candidates}=assessmentOwnership(source,rows,shortlist);
+    if(!inDetail&&sub===source)data.filters={search:view.ownerSearch,origin:view.origin,status:view.status};
+    context.ownership[source]=data;
+    recordGroups.push([data.records,inDetail?candidates:candidates.slice(0,30)]);
+  }
+  // Fit the current Worker limit while giving each tab room for examples.
+  const encoder=new TextEncoder();
+  const size=()=>encoder.encode(JSON.stringify({context})).byteLength;
+  const limit=29000;
+  for(let i=0;i<Math.max(...recordGroups.map(([,rows])=>rows.length));i++) {
+    for(const [records,rows] of recordGroups) {
+      if(i>=rows.length)continue;
+      records.push(rows[i]);
+      if(size()>limit)records.pop();
+    }
+  }
+  return context;
+}
 async function showAssessment() {
   const inDetail=view.page==="detail", sub=inDetail?view.detail:view.screen;
   const code=inDetail?view.ticker:"";
-  const rows=inDetail?screenRows.filter(row=>row.code===code):sub.startsWith("own")?[]:matchingStocks();
-  const keys=inDetail?["Price","Market Cap","Weight to IHSG","FF BEI","Dividend Yield"]:
-    view.screen==="custom"?[...new Set(view.rules.filter(([,op,value])=>op&&value.trim()).map(([key])=>key))]:[view.metric];
-  const tickers=new Set(code?[code]:rows.slice(0,12).map(row=>row.code));
-  const byThreshold=Object.fromEntries(["own5","own1"].map(source=>{
-    const selected=sub===source?filteredOwners(source,code):owners[source].filter(row=>tickers.has(row[0]));
-    const ranked=selected.slice().sort((a,b)=>Number(b[6]!=="Existing")-Number(a[6]!=="Existing")||
-      Math.abs((b[4]??0)-(b[5]??0))-Math.abs((a[4]??0)-(a[5]??0)));
-    return [source,{periode:sources[source]?.period,total:selected.length,records:ranked.slice(0,24).map(
-      ([ticker,nama,asal,jenis,porsiSekarang,porsiDulu,status,sahamSekarang,sahamDulu])=>
-      ({ticker,nama,asal,jenis,porsiSekarang,porsiDulu,status,sahamSekarang,sahamDulu}))}];
-  }));
-  const context={tab:inDetail?"Stock Detail":"Screener",subtab:sub,ticker:code||null,
-    kriteria:!inDetail&&sub==="custom"?view.rules:null,jumlahHasil:rows.length,
-    saham:rows.slice(0,12).map(row=>({ticker:row.code,...Object.fromEntries(keys.map(k=>[k,row[k]??null]))})),
-    perubahanKepemilikan:byThreshold};
+  const context=assessmentContext(inDetail,sub,code);
   const request=++assessmentRequest;
-  assessmentPrompt="Ringkas temuan utama berdasarkan angka dan periode ini. Bedakan perubahan porsi dan jumlah saham, dan jelaskan jika data tidak tersedia.\n\n"+JSON.stringify(context,null,2);
-  document.querySelector("#assessment-context").textContent=code?"Stock Detail · "+code:"Screener · "+(screens[sub]||sub);
+  assessmentPrompt=context.analysisFocus+"\n\n"+JSON.stringify(context,null,2);
+  document.querySelector("#assessment-context").textContent=code?"Stock Detail · "+code+" · Semua subtab":"Screener · "+(screens[sub]||sub)+" · Semua subtab";
   document.querySelector("#copied").textContent="";
   const out=document.querySelector("#assessment-output");
   const connect=document.querySelector("#assessment-connect");
   connect.hidden=!assessmentEndpoint || !!assessmentToken;
-  out.textContent=assessmentEndpoint?(assessmentToken?"Menganalisis snapshot…":"Masukkan token akses layanan AI."):
+  out.textContent=assessmentEndpoint?(assessmentToken?"Menganalisis seluruh subtab…":"Masukkan token akses layanan AI."):
     "Layanan Gemini belum terhubung. Konteks Screener / Stock Detail, termasuk laporan 5% dan 1%, siap disalin.";
   if(!assessment.open) assessment.show();
   if(!assessmentEndpoint||!assessmentToken)return;
@@ -658,6 +798,10 @@ async function showAssessment() {
       body:JSON.stringify({context}),signal:AbortSignal.timeout(25000)
     });
     if(response.status===401 && request===assessmentRequest){assessmentToken="";connect.hidden=false;}
+    if(response.status===413 && request===assessmentRequest) {
+      out.textContent="Konteks ini melebihi batas layanan AI. Gunakan tombol Salin konteks untuk melanjutkan.";
+      return;
+    }
     if(!response.ok)throw Error("AI endpoint");
     const {text}=await response.json();
     if(typeof text!=="string" || !text.trim())throw Error("AI result");
